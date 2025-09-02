@@ -252,6 +252,28 @@ export function AdminAccountTypes() {
                               </div>
                             </div>
                           </div>
+                          <div className="col-span-2">
+                            <div className="flex items-start">
+                              <FileText className="h-4 w-4 text-gray-400 mr-1 mt-0.5" />
+                              <div>
+                                <span className="font-medium">Required Documents:</span>
+                                {accountType.documents_required && accountType.documents_required.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {accountType.documents_required.map((doc, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                                      >
+                                        {doc}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-500 text-sm"> None specified</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -26,7 +26,6 @@ export interface AccountType {
   dividend_rate: number;
   is_active: boolean;
   documents_required: string[];
-  documents_required: string[];
   created_at: string;
   updated_at: string;
   bank_account?: {
@@ -46,7 +45,6 @@ export interface CreateAccountTypeData {
   dividend_rate?: number;
   is_active?: boolean;
   documents_required?: string[];
-  documents_required?: string[];
 }
 
 export interface UpdateAccountTypeData {
@@ -58,6 +56,5 @@ export interface UpdateAccountTypeData {
   can_take_loan?: boolean;
   dividend_rate?: number;
   is_active?: boolean;
-  documents_required?: string[];
   documents_required?: string[];
 }
