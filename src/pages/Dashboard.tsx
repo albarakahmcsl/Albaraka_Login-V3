@@ -172,7 +172,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pt-24">
       {/* Welcome Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
