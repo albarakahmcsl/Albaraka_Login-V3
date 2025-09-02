@@ -1,5 +1,6 @@
 import { supabase, getAuthHeaders } from './supabase'
 import type { User, Role, Permission, CreateUserData, UpdateUserData, CreateRoleData, UpdateRoleData, CreatePermissionData, UpdatePermissionData, PasswordValidationResult } from '../types/auth'
+import type { BankAccount, CreateBankAccountData, UpdateBankAccountData } from '../types'
 
 const API_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
 
@@ -448,6 +449,67 @@ export const authApi = {
     
     const result = await handleResponse(response)
     console.log('[dataFetching] authApi.updatePassword SUCCESS')
+    return result
+  }
+}
+
+// Bank Accounts API
+export const bankAccountsApi = {
+  async getBankAccounts(): Promise<{ bank_accounts: BankAccount[] }> {
+    console.log('[dataFetching] bankAccountsApi.getBankAccounts START')
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE_URL}/admin-bank-accounts`, {
+      method: 'GET',
+      headers
+    })
+    
+    const result = await handleResponse(response)
+    console.log('[dataFetching] bankAccountsApi.getBankAccounts SUCCESS')
+    return result
+  },
+
+  async createBankAccount(bankAccountData: CreateBankAccountData): Promise<{ bank_account: BankAccount }> {
+    console.log('[dataFetching] bankAccountsApi.createBankAccount START')
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE_URL}/admin-bank-accounts`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(bankAccountData)
+    })
+    
+    const result = await handleResponse(response)
+    console.log('[dataFetching] bankAccountsApi.createBankAccount SUCCESS')
+    return result
+  },
+
+  async updateBankAccount(bankAccountId: string, bankAccountData: UpdateBankAccountData): Promise<{ bank_account: BankAccount }> {
+    console.log('[dataFetching] bankAccountsApi.updateBankAccount START')
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE_URL}/admin-bank-accounts/${bankAccountId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(bankAccountData)
+    })
+    
+    const result = await handleResponse(response)
+    console.log('[dataFetching] bankAccountsApi.updateBankAccount SUCCESS')
+    return result
+  },
+
+  async deleteBankAccount(bankAccountId: string): Promise<{ message: string }> {
+    console.log('[dataFetching] bankAccountsApi.deleteBankAccount START')
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE_URL}/admin-bank-accounts/${bankAccountId}`, {
+      method: 'DELETE',
+      headers
+    })
+    
+    const result = await handleResponse(response)
+    console.log('[dataFetching] bankAccountsApi.deleteBankAccount SUCCESS')
     return result
   }
 }

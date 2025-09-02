@@ -11,6 +11,7 @@ import {
   BarChart3,
   Shield,
   Key,
+  Banknote,
 } from 'lucide-react'
 
 interface NavItem {
@@ -50,6 +51,12 @@ const navigation: NavItem[] = [
     href: '/admin/permissions',
     icon: Key,
     permission: { resource: 'permissions', action: 'manage' }
+  },
+  {
+    name: 'Bank Accounts',
+    href: '/admin/bank-accounts',
+    icon: Banknote,
+    permission: { resource: 'bank_accounts', action: 'manage' }
   },
   {
     name: 'Reports',

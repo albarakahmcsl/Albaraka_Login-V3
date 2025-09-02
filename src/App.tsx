@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { queryClient, queryKeys } from './lib/queryClient'
-import { dashboardApi, adminUsersApi, rolesApi } from './lib/dataFetching'
+import { dashboardApi, adminUsersApi, rolesApi, adminRolesApi, adminPermissionsApi, bankAccountsApi } from './lib/dataFetching'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -16,6 +16,7 @@ const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard').then(mo
 const AdminUsers = React.lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })))
 const AdminRoles = React.lazy(() => import('./pages/AdminRoles').then(module => ({ default: module.AdminRoles })))
 const AdminPermissions = React.lazy(() => import('./pages/AdminPermissions').then(module => ({ default: module.AdminPermissions })))
+const AdminBankAccounts = React.lazy(() => import('./pages/AdminBankAccounts').then(module => ({ default: module.AdminBankAccounts })))
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })))
 
 // Loading fallback component
@@ -130,6 +131,24 @@ const adminPermissionsLoader = async () => {
   }
 }
 
+const adminBankAccountsLoader = async () => {
+  console.log('[App] adminBankAccountsLoader START')
+  
+  try {
+    const bankAccountsData = await queryClient.fetchQuery({
+      queryKey: queryKeys.bankAccounts(),
+      queryFn: bankAccountsApi.getBankAccounts,
+      staleTime: 5 * 60 * 1000, // Cache bank accounts for 5 minutes
+    })
+    
+    console.log('[App] adminBankAccountsLoader SUCCESS')
+    return { bankAccounts: bankAccountsData.bank_accounts }
+  } catch (error) {
+    console.error('[App] adminBankAccountsLoader ERROR:', error)
+    return { bankAccounts: [] }
+  }
+}
+
 // Router configuration with loaders
 const router = createBrowserRouter([
   {
@@ -218,6 +237,18 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         loader: adminPermissionsLoader,
+        hydrateFallbackElement: <PageLoadingFallback />,
+      },
+      {
+        path: 'admin/bank-accounts',
+        element: (
+          <ProtectedRoute requiredPermission={{ resource: 'bank_accounts', action: 'manage' }}>
+            <Suspense fallback={<PageLoadingFallback />}>
+              <AdminBankAccounts />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+        loader: adminBankAccountsLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {

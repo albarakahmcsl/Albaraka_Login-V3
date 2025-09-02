@@ -44,6 +44,7 @@ export const queryKeys = {
   roles: () => ['roles'] as const,
   adminRoles: () => ['admin', 'roles'] as const,
   adminPermissions: () => ['admin', 'permissions'] as const,
+  bankAccounts: () => ['admin', 'bankAccounts'] as const,
   
   // Auth queries
   currentUser: () => ['auth', 'currentUser'] as const,
