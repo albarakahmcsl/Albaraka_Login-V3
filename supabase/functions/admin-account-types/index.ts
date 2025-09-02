@@ -16,6 +16,7 @@ interface AccountType {
   can_take_loan: boolean
   dividend_rate: number
   is_active: boolean
+  documents_required: string[]
   created_at: string
   updated_at: string
   bank_account?: {
@@ -34,6 +35,7 @@ interface CreateAccountTypeData {
   can_take_loan?: boolean
   dividend_rate?: number
   is_active?: boolean
+  documents_required?: string[]
 }
 
 interface UpdateAccountTypeData {
@@ -45,6 +47,7 @@ interface UpdateAccountTypeData {
   can_take_loan?: boolean
   dividend_rate?: number
   is_active?: boolean
+  documents_required?: string[]
 }
 
 Deno.serve(async (req) => {
@@ -131,12 +134,21 @@ Deno.serve(async (req) => {
         is_member_account = false,
         can_take_loan = false,
         dividend_rate = 0.00,
-        is_active = true
+        is_active = true,
+        documents_required = []
       } = body
 
       if (!name || !bank_account_id || typeof name !== 'string' || typeof bank_account_id !== 'string') {
         return new Response(
           JSON.stringify({ error: 'Name and bank account ID are required and must be strings' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Validate documents_required
+      if (documents_required && (!Array.isArray(documents_required) || !documents_required.every(doc => typeof doc === 'string'))) {
+        return new Response(
+          JSON.stringify({ error: 'Documents required must be an array of strings' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -204,7 +216,8 @@ Deno.serve(async (req) => {
           is_member_account,
           can_take_loan,
           dividend_rate,
-          is_active
+          is_active,
+          documents_required: documents_required || []
         })
         .select(`
           *,
@@ -241,7 +254,8 @@ Deno.serve(async (req) => {
         is_member_account,
         can_take_loan,
         dividend_rate,
-        is_active
+        is_active,
+        documents_required
       } = body
 
       if (!accountTypeId) {
@@ -339,6 +353,17 @@ Deno.serve(async (req) => {
 
       if (is_active !== undefined) {
         updateData.is_active = is_active
+      }
+
+      if (documents_required !== undefined) {
+        // Validate documents_required
+        if (!Array.isArray(documents_required) || !documents_required.every(doc => typeof doc === 'string')) {
+          return new Response(
+            JSON.stringify({ error: 'Documents required must be an array of strings' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        updateData.documents_required = documents_required
       }
 
       // Update the account type

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign, Percent } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { accountTypesApi, bankAccountsApi, ApiError } from '../lib/dataFetching'
 import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAccount } from '../types'
 
@@ -223,11 +224,33 @@ export function AdminAccountTypes() {
                           </div>
                           <div className="flex items-center">
                             <DollarSign className="h-4 w-4 text-gray-400 mr-1" />
-                            <span className="font-medium">Processing Fee:</span> ₹{accountType.processing_fee}
+                            <span className="font-medium">Processing Fee:</span> MUR {accountType.processing_fee}
                           </div>
                           <div className="flex items-center">
                             <Percent className="h-4 w-4 text-gray-400 mr-1" />
                             <span className="font-medium">Dividend Rate:</span> {accountType.dividend_rate}%
+                          </div>
+                          <div className="col-span-2">
+                            <div className="flex items-start">
+                              <FileText className="h-4 w-4 text-gray-400 mr-1 mt-0.5" />
+                              <div>
+                                <span className="font-medium">Required Documents:</span>
+                                {accountType.documents_required && accountType.documents_required.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {accountType.documents_required.map((doc, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                                      >
+                                        {doc}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-500 text-sm"> None specified</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -300,7 +323,8 @@ function CreateAccountTypeModal({
     is_member_account: false,
     can_take_loan: false,
     dividend_rate: 0,
-    is_active: true
+    is_active: true,
+    documents_required_text: ''
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -308,6 +332,13 @@ function CreateAccountTypeModal({
     if (!formData.name.trim() || !formData.bank_account_id) {
       return
     }
+    
+    // Parse documents from comma-separated text
+    const documentsArray = formData.documents_required_text
+      .split(',')
+      .map(doc => doc.trim())
+      .filter(doc => doc.length > 0)
+    
     onSubmit({
       name: formData.name.trim(),
       description: formData.description.trim() || undefined,
@@ -316,7 +347,8 @@ function CreateAccountTypeModal({
       is_member_account: formData.is_member_account,
       can_take_loan: formData.can_take_loan,
       dividend_rate: formData.dividend_rate,
-      is_active: formData.is_active
+      is_active: formData.is_active,
+      documents_required: documentsArray
     })
   }
 
@@ -370,7 +402,7 @@ function CreateAccountTypeModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Processing Fee (₹)</label>
+                <label className="block text-sm font-medium text-gray-700">Processing Fee (MUR)</label>
                 <input
                   type="number"
                   min="0"
@@ -395,6 +427,21 @@ function CreateAccountTypeModal({
                   placeholder="0.00"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Required Documents</label>
+              <textarea
+                value={formData.documents_required_text}
+                onChange={(e) => setFormData(prev => ({ ...prev, documents_required_text: e.target.value }))}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                rows={3}
+                placeholder="Enter required documents separated by commas (e.g., ID Card, Birth Certificate, Proof of Address)"
+                maxLength={500}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Separate multiple documents with commas. These will be required when opening this account type.
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -484,7 +531,8 @@ function EditAccountTypeModal({
     is_member_account: accountType.is_member_account,
     can_take_loan: accountType.can_take_loan,
     dividend_rate: accountType.dividend_rate,
-    is_active: accountType.is_active
+    is_active: accountType.is_active,
+    documents_required_text: (accountType.documents_required || []).join(', ')
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -492,6 +540,13 @@ function EditAccountTypeModal({
     if (!formData.name.trim() || !formData.bank_account_id) {
       return
     }
+    
+    // Parse documents from comma-separated text
+    const documentsArray = formData.documents_required_text
+      .split(',')
+      .map(doc => doc.trim())
+      .filter(doc => doc.length > 0)
+    
     onSubmit({
       name: formData.name.trim(),
       description: formData.description.trim() || undefined,
@@ -500,7 +555,8 @@ function EditAccountTypeModal({
       is_member_account: formData.is_member_account,
       can_take_loan: formData.can_take_loan,
       dividend_rate: formData.dividend_rate,
-      is_active: formData.is_active
+      is_active: formData.is_active,
+      documents_required: documentsArray
     })
   }
 
@@ -552,7 +608,7 @@ function EditAccountTypeModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Processing Fee (₹)</label>
+                <label className="block text-sm font-medium text-gray-700">Processing Fee (MUR)</label>
                 <input
                   type="number"
                   min="0"
@@ -575,6 +631,21 @@ function EditAccountTypeModal({
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Required Documents</label>
+              <textarea
+                value={formData.documents_required_text}
+                onChange={(e) => setFormData(prev => ({ ...prev, documents_required_text: e.target.value }))}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                rows={3}
+                maxLength={500}
+                placeholder="Enter required documents separated by commas"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Separate multiple documents with commas. These will be required when opening this account type.
+              </p>
             </div>
 
             <div className="space-y-3">
