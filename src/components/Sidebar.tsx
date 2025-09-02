@@ -12,6 +12,7 @@ import {
   Shield,
   Key,
   Banknote,
+  Layers,
 } from 'lucide-react'
 
 interface NavItem {
@@ -57,6 +58,12 @@ const navigation: NavItem[] = [
     href: '/admin/bank-accounts',
     icon: Banknote,
     permission: { resource: 'bank_accounts', action: 'manage' }
+  },
+  {
+    name: 'Account Types',
+    href: '/admin/account-types',
+    icon: Layers,
+    permission: { resource: 'account_types', action: 'manage' }
   },
   {
     name: 'Reports',

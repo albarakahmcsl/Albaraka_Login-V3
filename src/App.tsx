@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { queryClient, queryKeys } from './lib/queryClient'
-import { dashboardApi, adminUsersApi, rolesApi, adminRolesApi, adminPermissionsApi, bankAccountsApi } from './lib/dataFetching'
+import { dashboardApi, adminUsersApi, rolesApi, adminRolesApi, adminPermissionsApi, bankAccountsApi, accountTypesApi } from './lib/dataFetching'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -17,6 +17,7 @@ const AdminUsers = React.lazy(() => import('./pages/AdminUsers').then(module => 
 const AdminRoles = React.lazy(() => import('./pages/AdminRoles').then(module => ({ default: module.AdminRoles })))
 const AdminPermissions = React.lazy(() => import('./pages/AdminPermissions').then(module => ({ default: module.AdminPermissions })))
 const AdminBankAccounts = React.lazy(() => import('./pages/AdminBankAccounts').then(module => ({ default: module.AdminBankAccounts })))
+const AdminAccountTypes = React.lazy(() => import('./pages/AdminAccountTypes').then(module => ({ default: module.AdminAccountTypes })))
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })))
 
 // Loading fallback component
@@ -149,6 +150,35 @@ const adminBankAccountsLoader = async () => {
   }
 }
 
+const adminAccountTypesLoader = async () => {
+  console.log('[App] adminAccountTypesLoader START')
+  
+  try {
+    // Prefetch both account types and bank accounts data
+    const [accountTypesData, bankAccountsData] = await Promise.all([
+      queryClient.fetchQuery({
+        queryKey: queryKeys.accountTypes(),
+        queryFn: accountTypesApi.getAccountTypes,
+        staleTime: 5 * 60 * 1000, // Cache account types for 5 minutes
+      }),
+      queryClient.fetchQuery({
+        queryKey: queryKeys.bankAccounts(),
+        queryFn: bankAccountsApi.getBankAccounts,
+        staleTime: 5 * 60 * 1000, // Cache bank accounts for 5 minutes
+      }),
+    ])
+    
+    console.log('[App] adminAccountTypesLoader SUCCESS')
+    return { 
+      accountTypes: accountTypesData.account_types,
+      bankAccounts: bankAccountsData.bank_accounts
+    }
+  } catch (error) {
+    console.error('[App] adminAccountTypesLoader ERROR:', error)
+    return { accountTypes: [], bankAccounts: [] }
+  }
+}
+
 // Router configuration with loaders
 const router = createBrowserRouter([
   {
@@ -249,6 +279,18 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         loader: adminBankAccountsLoader,
+        hydrateFallbackElement: <PageLoadingFallback />,
+      },
+      {
+        path: 'admin/account-types',
+        element: (
+          <ProtectedRoute requiredPermission={{ resource: 'account_types', action: 'manage' }}>
+            <Suspense fallback={<PageLoadingFallback />}>
+              <AdminAccountTypes />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+        loader: adminAccountTypesLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {
