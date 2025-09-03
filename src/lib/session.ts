@@ -4,7 +4,7 @@ import { withTimeout, retryWithBackoff } from '../utils/helpers'
 import type { Session } from '@supabase/supabase-js'
 import type { User } from '../types/auth'
 
-const PROFILE_FETCH_TIMEOUT = 15000 // 15 seconds for profile fetch operation
+const PROFILE_FETCH_TIMEOUT = 500 // Temporarily reduced for testing timeout scenarios (REVERT TO 15000 after testing)
 
 /**
  * Gets the active Supabase session.
