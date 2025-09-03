@@ -43,7 +43,7 @@ export function Navbar() {
               <div className="h-4 w-px bg-gray-200"></div>
               
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                {user?.roles?.name || 'User'}
+                {user?.roles?.map(role => role.name).join(', ') || 'User'}
               </span>
             </div>
             
