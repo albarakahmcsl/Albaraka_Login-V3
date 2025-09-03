@@ -49,7 +49,7 @@ export const fetchUserProfile = async (userId: string): Promise<User | null> => 
     const profile = await withTimeout(
       retryWithBackoff(
         () => userProfileApi.fetchUserProfile(userId),
-        3, // max retries
+        10, // max retries
         1000 // base delay in ms
       ),
       PROFILE_FETCH_TIMEOUT,
