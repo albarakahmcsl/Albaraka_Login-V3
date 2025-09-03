@@ -81,7 +81,7 @@ export function ProfilePage() {
           
           <div className="flex items-center">
             <Shield className="h-5 w-5 text-gray-500 mr-3" />
-            <p className="text-gray-700">Role: <span className="font-medium">{user?.roles?.name || 'No role assigned'}</span></p>
+            <p className="text-gray-700">Role: <span className="font-medium">{user?.roles?.map(role => role.name).join(', ') || 'No role assigned'}</span></p>
           </div>
           
           <div className="flex items-center">
