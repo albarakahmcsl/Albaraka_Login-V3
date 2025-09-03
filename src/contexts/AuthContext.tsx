@@ -242,14 +242,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setUser(null)
             setCachedUser(null)
             await signOut() // Use enhanced signOut function
-        } catch (err) {
+                  } catch (err) {
           console.error('[AuthContext] Full initial load failed:', err)
           setError('Failed to establish session. Please try again.')
         } finally {
           setLoading(false) // Always turn off loading after initial attempt
           setIsInitialized(true)
         }
-      }
+              }
+          }
     }
 
     handleInitialLoad()
