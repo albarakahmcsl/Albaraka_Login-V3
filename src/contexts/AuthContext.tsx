@@ -1,63 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { authApi, userProfileApi } from '../lib/dataFetching'
+import { queryClient, queryKeys } from '../lib/queryClient'
+import { clearPermissionCache } from '../utils/permissions'
 import { withTimeout } from '../utils/helpers'
-
-// Cache keys for localStorage
-const USER_CACHE_KEY = 'auth_user_profile'
-const CACHE_TIMESTAMP_KEY = 'auth_cache_timestamp'
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
-/**
- * Safely get cached user data from localStorage
- */
-const getCachedUser = (): any | null => {
-  try {
-    const cachedUser = localStorage.getItem(USER_CACHE_KEY)
-    const cacheTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY)
-    
-    if (!cachedUser || !cacheTimestamp) return null
-    
-    const timestamp = parseInt(cacheTimestamp, 10)
-    const now = Date.now()
-    
-    // Check if cache is still valid (within 5 minutes)
-    if (now - timestamp > CACHE_DURATION) {
-      console.log('[AuthContext] Cache expired, clearing...')
-      localStorage.removeItem(USER_CACHE_KEY)
-      localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-      return null
-    }
-    
-    const user = JSON.parse(cachedUser)
-    console.log('[AuthContext] Using cached user:', user)
-    return user
-  } catch (error) {
-    console.error('[AuthContext] Error reading cached user:', error)
-    localStorage.removeItem(USER_CACHE_KEY)
-    localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-    return null
-  }
-}
-
-/**
- * Safely cache user data to localStorage
- */
-const setCachedUser = (user: any | null) => {
-  try {
-    if (user) {
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user))
-      localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString())
-      console.log('[AuthContext] User cached successfully')
-    } else {
-      localStorage.removeItem(USER_CACHE_KEY)
-      localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-      console.log('[AuthContext] User cache cleared')
-    }
-  } catch (error) {
-    console.error('[AuthContext] Error caching user:', error)
-  }
-}
 
 /**
  * Defines the shape of the AuthContext.
@@ -81,12 +27,9 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  // Initialize user from cache if available
-  const cachedUser = getCachedUser()
-  const [user, setUser] = useState<any | null>(cachedUser)
-  const [loading, setLoading] = useState(false) // Start with false for instant UI
+  const [user, setUser] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true) // Start with true for initial session check
   const [error, setError] = useState<string | null>(null)
-  const [isInitialized, setIsInitialized] = useState(!!cachedUser) // Immediately initialized if cached
 
   /**
    * Fetches extra profile data from your custom `users` table
@@ -113,71 +56,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     console.log('[AuthContext] useEffect INIT START')
     
-    // If we have cached user data, immediately initialize and start background refresh
-    if (cachedUser) {
-      console.log('[AuthContext] Using cached user for immediate initialization:', cachedUser)
-      setUser(cachedUser)
-      setLoading(false)
-      setIsInitialized(true)
-      
-      // Start background refresh to ensure data is current
-      const backgroundRefresh = async () => {
-        try {
-          console.log('[AuthContext] Starting background refresh for cached user')
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-          
-          if (sessionError || !session?.user) {
-            console.log('[AuthContext] Background refresh - No valid session, clearing cache')
-            setUser(null)
-            setCachedUser(null)
-            await supabase.auth.signOut()
-            return
-          }
-          
-          // Fetch fresh profile data in background
-          const freshProfile = await withTimeout(
-            fetchUserProfile(session.user.id),
-            15000, // 15 seconds for background refresh
-            'Background profile refresh timed out'
-          )
-          
-          // Check if user account is still active
-          if (!freshProfile?.is_active) {
-            console.log('[AuthContext] Background refresh - User account is inactive, signing out')
-            setUser(null)
-            setCachedUser(null)
-            await supabase.auth.signOut()
-            return
-          }
-          
-          // Only update if data has changed
-          if (JSON.stringify(freshProfile) !== JSON.stringify(cachedUser)) {
-            console.log('[AuthContext] Background refresh - Data changed, updating user')
-            setUser(freshProfile)
-            setCachedUser(freshProfile)
-          } else {
-            console.log('[AuthContext] Background refresh - No changes detected')
-          }
-          
-          // Clear any previous errors
-          setError(null)
-        } catch (err) {
-          console.error('[AuthContext] Background refresh failed:', err)
-          // Don't clear user on background refresh failure - just show warning
-          if (err instanceof Error && err.message.includes('timed out')) {
-            setError('Profile data may be outdated. Please refresh if needed.')
-          } else {
-            setError('Unable to refresh profile data. Some features may not work correctly.')
-          }
-        }
-      }
-      
-      // Start background refresh after a short delay to not block initial render
-      setTimeout(backgroundRefresh, 100)
-      return
-    }
-    
-    // No cached data - proceed with full initialization
     const init = async () => {
       setLoading(true)
       try {
@@ -194,28 +72,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
         if (session?.user) {
           console.log('[AuthContext] init - Session found, fetching profile for user:', session.user.id)
-          const profile = await withTimeout(
-            fetchUserProfile(session.user.id),
-            10000, // 10 seconds for initial load
-            'Initial profile fetch timed out'
-          )
+          
+          // Use React Query to fetch and cache user profile
+          const profile = await queryClient.fetchQuery({
+            queryKey: queryKeys.userProfile(session.user.id),
+            queryFn: () => fetchUserProfile(session.user.id),
+            staleTime: Infinity, // Data never becomes stale automatically
+            gcTime: Infinity, // Keep in cache indefinitely
+          })
           
           // Check if user account is active
           if (!profile?.is_active) {
             console.log('[AuthContext] init - User account is inactive')
             setUser(null)
-            setCachedUser(null)
+            queryClient.removeQueries({ queryKey: queryKeys.userProfile(session.user.id) })
             await supabase.auth.signOut()
             return
           }
           
           setUser(profile)
-          setCachedUser(profile)
+          clearPermissionCache()
           console.log('[AuthContext] init - Profile set:', profile)
         } else {
           console.log('[AuthContext] init - No session found')
           setUser(null)
-          setCachedUser(null)
           // Ensure clean state if no session
           await supabase.auth.signOut()
         }
@@ -226,14 +106,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           console.error('[AuthContext] init - CATCH ERROR:', err)
           setUser(null)
-          setCachedUser(null)
           // Clear any invalid tokens on error
           await supabase.auth.signOut()
         }
       } finally {
         console.log('[AuthContext] init - Setting loading to false')
         setLoading(false)
-        setIsInitialized(true)
       }
     }
 
@@ -247,35 +125,40 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         if (session?.user) {
           console.log('[AuthContext] Auth state change - Fetching profile for user:', session.user.id)
-          const profile = await withTimeout(
-            fetchUserProfile(session.user.id),
-            20000, // 20 seconds for auth state changes
-            'Profile fetch timed out during auth state change'
-          )
+          
+          // Use React Query to fetch and cache user profile
+          const profile = await queryClient.fetchQuery({
+            queryKey: queryKeys.userProfile(session.user.id),
+            queryFn: () => fetchUserProfile(session.user.id),
+            staleTime: Infinity, // Data never becomes stale automatically
+            gcTime: Infinity, // Keep in cache indefinitely
+          })
           
           // Check if user account is active
           if (!profile?.is_active) {
             console.log('[AuthContext] Auth state change - User account is inactive, signing out')
             setUser(null)
-            setCachedUser(null)
+            queryClient.removeQueries({ queryKey: queryKeys.userProfile(session.user.id) })
             await supabase.auth.signOut()
             return
           }
           
           setUser(profile)
-          setCachedUser(profile)
+          clearPermissionCache()
           console.log('[AuthContext] Auth state change - Profile set:', profile)
         } else {
           console.log('[AuthContext] Auth state change - No session, clearing user')
           setUser(null)
-          setCachedUser(null)
+          // Clear user profile from React Query cache when signing out
+          if (user?.id) {
+            queryClient.removeQueries({ queryKey: queryKeys.userProfile(user.id) })
+          }
         }
         
         // Set loading to false after auth state change is processed
         if (loading) {
           setLoading(false)
         }
-        setIsInitialized(true)
       } catch (err) {
         console.error('[AuthContext] Auth state change - ERROR:', err)
         // For auth state changes, be more graceful with errors
@@ -284,7 +167,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           setError('Failed to refresh user profile. Some features may not work correctly.')
         }
-        setIsInitialized(true)
       }
     })
 
@@ -328,7 +210,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
 
         setUser(profile)
-        setCachedUser(profile)
+        clearPermissionCache()
         console.log('[AuthContext] signIn SUCCESS - user set:', profile)
       }
     } catch (err: any) {
@@ -347,9 +229,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signOut = async () => {
     console.log('[AuthContext] signOut START')
     
+    // Clear user profile from React Query cache
+    if (user?.id) {
+      queryClient.removeQueries({ queryKey: queryKeys.userProfile(user.id) })
+    }
+    
     // Immediately clear user state and cache for instant UI feedback
     setUser(null)
-    setCachedUser(null)
     setError(null)
     console.log('[AuthContext] signOut - User state cleared immediately')
     
@@ -419,27 +305,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (sessionUser) {
         console.log('[AuthContext] refreshUser - Fetching fresh profile...')
         try {
-          const profile = await withTimeout(
-            fetchUserProfile(sessionUser.id),
-            15000, // 15 seconds for manual refresh
-            'Profile refresh timed out'
-          )
+          // Invalidate existing cache to force fresh fetch
+          queryClient.invalidateQueries({ queryKey: queryKeys.userProfile(sessionUser.id) })
+          
+          // Use React Query to fetch fresh user profile
+          const profile = await queryClient.fetchQuery({
+            queryKey: queryKeys.userProfile(sessionUser.id),
+            queryFn: () => fetchUserProfile(sessionUser.id),
+            staleTime: Infinity, // Data never becomes stale automatically
+            gcTime: Infinity, // Keep in cache indefinitely
+          })
           
           // Check if user account is still active
           if (!profile?.is_active) {
             console.log('[AuthContext] refreshUser - User account is inactive, signing out')
             setUser(null)
-            setCachedUser(null)
+            queryClient.removeQueries({ queryKey: queryKeys.userProfile(sessionUser.id) })
             await supabase.auth.signOut()
             return
           }
           
           setUser(profile)
-          setCachedUser(profile)
-          console.log('[AuthContext] refreshUser SUCCESS - profile updated:', profile)
-          
-          // Clear permission cache when user data changes
           clearPermissionCache()
+          console.log('[AuthContext] refreshUser SUCCESS - profile updated:', profile)
         } catch (timeoutErr) {
           console.error('[AuthContext] refreshUser - TIMEOUT during refresh:', timeoutErr)
           setError('Profile refresh timed out. Using existing data.')
@@ -447,7 +335,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } else {
         console.log('[AuthContext] refreshUser - No session user found')
         setUser(null)
-        setCachedUser(null)
+        if (user?.id) {
+          queryClient.removeQueries({ queryKey: queryKeys.userProfile(user.id) })
+        }
       }
     } catch (err) {
       console.error('[AuthContext] refreshUser ERROR:', err)
@@ -491,7 +381,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   return (
     <AuthContext.Provider value={{ 
       user, 
-      loading: loading && !isInitialized, // Only show loading if not initialized and no cached data
+      loading, // Show loading during initial session check
       error, 
       signIn, 
       signOut, 
