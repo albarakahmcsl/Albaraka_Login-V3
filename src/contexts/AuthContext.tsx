@@ -6,40 +6,6 @@ import { getCachedUser, setCachedUser } from '../utils/profileCache'
 import { clearPermissionCache } from '../utils/permissions'
 
 /**
- * Clears all Supabase authentication tokens from local storage.
- * This is a failsafe to ensure tokens are removed when signOut() doesn't fully clear them.
- */
-const clearSupabaseTokens = () => {
-  try {
-    if (typeof localStorage === 'undefined') return
-    
-    console.log('[AuthContext] Clearing Supabase tokens from local storage...')
-    
-    // Get all keys from localStorage
-    const keys = Object.keys(localStorage)
-    
-    // Remove all Supabase-related authentication keys
-    keys.forEach(key => {
-      // Supabase typically stores auth data with keys like:
-      // - sb-[project-ref]-auth-token
-      // - sb-[project-ref]-auth-token-code-verifier
-      // - supabase.auth.token
-      if (key.includes('sb-') && (key.includes('auth-token') || key.includes('auth-pkce'))) {
-        localStorage.removeItem(key)
-        console.log('[AuthContext] Removed token key:', key)
-      } else if (key.startsWith('supabase.auth.')) {
-        localStorage.removeItem(key)
-        console.log('[AuthContext] Removed supabase auth key:', key)
-      }
-    })
-    
-    console.log('[AuthContext] Supabase token cleanup completed')
-  } catch (error) {
-    console.error('[AuthContext] Error clearing Supabase tokens:', error)
-  }
-}
-
-/**
  * Defines the shape of the AuthContext.
  * This is what all components using `useAuth()` will have access to.
  */
@@ -111,94 +77,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // For initial load or explicit sign-in, clear user on critical error
         setUser(null)
         setCachedUser(null)
-        
-        try {
-          // Always attempt to sign out to clear session
-          console.log('[AuthContext] Attempting to sign out due to critical profile fetch error')
+        // Only sign out if there's an actual session to clear
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
           await supabase.auth.signOut()
-          console.log('[AuthContext] Sign out completed')
-        } catch (signOutError) {
-          console.error('[AuthContext] Error during sign out:', signOutError)
         }
-        
-        // Failsafe: Explicitly clear Supabase tokens from local storage
-        // This ensures tokens are removed even if signOut() doesn't fully clear them
-        clearSupabaseTokens()
-        
-        // Clear permission cache
-        clearPermissionCache()
-        
         setError(err.message || 'Failed to load user profile. Please try logging in again.')
       }
       return null
-    }
-  }
-
-  /**
-   * Enhanced sign out function that ensures all authentication data is cleared
-   */
-  const signOut = async () => {
-    console.log('[AuthContext] signOut START')
-
-    // Immediately clear user state and cache for instant UI feedback
-    setUser(null)
-    setCachedUser(null)
-    setError(null)
-    console.log('[AuthContext] signOut - User state cleared immediately')
-
-    try {
-      console.log('[AuthContext] signOut - Calling Supabase auth signOut...')
-      await supabase.auth.signOut()
-      console.log('[AuthContext] signOut SUCCESS')
-    } catch (err: any) {
-      console.error('[AuthContext] signOut ERROR:', err)
-      // Don't show error for signout failures - user is already logged out from UI perspective
-    }
-    
-    // Failsafe: Always clear Supabase tokens after signOut attempt
-    clearSupabaseTokens()
-    
-    // Clear permission cache
-    clearPermissionCache()
-  }
-
-  /**
-   * Enhanced sign in function with better error handling
-   */
-  const signIn = async (email: string, password: string) => {
-    console.log('[AuthContext] signIn START - email:', email)
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Clear any existing tokens before attempting new sign in
-      clearSupabaseTokens()
-      
-      console.log('[AuthContext] signIn - Calling Supabase auth...')
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-
-      if (authError) {
-        console.error('[AuthContext] signIn - Auth error:', authError)
-        throw authError
-      }
-
-      if (data.user) {
-        console.log('[AuthContext] signIn - Auth successful, processing profile...')
-        const profile = await processAndSetUser(data.user.id)
-        if (!profile) {
-          throw new Error('Failed to load user profile after sign-in.')
-        }
-        console.log('[AuthContext] signIn SUCCESS - user set:', profile)
-      }
-    } catch (err: any) {
-      console.error('[AuthContext] signIn ERROR:', err)
-      // Clear tokens on sign-in failure as well
-      clearSupabaseTokens()
-      setError(err.message)
-      throw err
-    } finally {
-      console.log('[AuthContext] signIn - Setting loading to false')
-      setLoading(false)
     }
   }
 
@@ -222,7 +108,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('[AuthContext] No fresh session in background, clearing cached user.')
             setUser(null)
             setCachedUser(null)
-            await signOut() // Use enhanced signOut function
+            await supabase.auth.signOut() // Ensure session is cleared
           }
         } catch (err) {
           console.error('[AuthContext] Background refresh failed:', err)
@@ -241,7 +127,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('[AuthContext] No session found on initial load.')
             setUser(null)
             setCachedUser(null)
-            await signOut() // Use enhanced signOut function
           }
         } catch (err) {
           console.error('[AuthContext] Full initial load failed:', err)
@@ -267,8 +152,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.log('[AuthContext] Auth state change - No session, clearing user')
           setUser(null)
           setCachedUser(null)
-          clearSupabaseTokens() // Ensure tokens are cleared
-          await signOut() // Use enhanced signOut function
+          setError(null) // Clear errors on logout
         }
       } catch (err) {
         console.error('[AuthContext] Auth state change handler ERROR:', err)
@@ -284,6 +168,64 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       subscription.subscription.unsubscribe()
     }
   }, []) // Empty dependency array ensures this runs only once on mount
+
+  /**
+   * Signs in a user with email + password using Supabase auth.
+   * If successful, fetches their extended profile and saves it locally.
+   */
+  const signIn = async (email: string, password: string) => {
+    console.log('[AuthContext] signIn START - email:', email)
+    setLoading(true)
+    setError(null)
+
+    try {
+      console.log('[AuthContext] signIn - Calling Supabase auth...')
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (authError) {
+        console.error('[AuthContext] signIn - Auth error:', authError)
+        throw authError
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] signIn - Auth successful, processing profile...')
+        const profile = await processAndSetUser(data.user.id)
+        if (!profile) {
+          throw new Error('Failed to load user profile after sign-in.')
+        }
+        console.log('[AuthContext] signIn SUCCESS - user set:', profile)
+      }
+    } catch (err: any) {
+      console.error('[AuthContext] signIn ERROR:', err)
+      setError(err.message)
+      throw err
+    } finally {
+      console.log('[AuthContext] signIn - Setting loading to false')
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Logs the user out from Supabase and clears local state.
+   */
+  const signOut = async () => {
+    console.log('[AuthContext] signOut START')
+
+    // Immediately clear user state and cache for instant UI feedback
+    setUser(null)
+    setCachedUser(null)
+    setError(null)
+    console.log('[AuthContext] signOut - User state cleared immediately')
+
+    try {
+      console.log('[AuthContext] signOut - Calling Supabase auth signOut...')
+      await supabase.auth.signOut()
+      console.log('[AuthContext] signOut SUCCESS')
+    } catch (err: any) {
+      console.error('[AuthContext] signOut ERROR:', err)
+      // Don't show error for signout failures - user is already logged out from UI perspective
+    }
+  }
 
   /**
    * Changes the user's password using the secure Edge Function approach.
