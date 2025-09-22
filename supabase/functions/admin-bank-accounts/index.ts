@@ -1,11 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { authenticateAndCheckPermission } from '../utils/permissionChecks.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-roles',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
+import { authenticateUser, corsHeaders, handleAuthError } from '../utils/authChecks.ts'
 
 interface BankAccount {
   id: string
@@ -35,8 +29,8 @@ Deno.serve(async (req) => {
 
     // GET bank accounts
     if (method === 'GET' && url.pathname.endsWith('/admin-bank-accounts')) {
-      // Check view permission for GET requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'view')
+      // Only check if user is logged in
+      const { user, supabase } = await authenticateUser(req)
 
       const { data: bankAccountsData, error: bankAccountsError } = await supabase
         .from('bank_accounts')
@@ -58,8 +52,8 @@ Deno.serve(async (req) => {
 
     // POST create bank account
     if (method === 'POST' && url.pathname.endsWith('/admin-bank-accounts')) {
-      // Check create permission for POST requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'create')
+      // Only check if user is logged in
+      const { user, supabase } = await authenticateUser(req)
 
       const body: CreateBankAccountData = await req.json()
       const { name, account_number } = body
@@ -128,8 +122,8 @@ Deno.serve(async (req) => {
 
     // PUT update bank account
     if (method === 'PUT') {
-      // Check update permission for PUT requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'update')
+      // Only check if user is logged in
+      const { user, supabase } = await authenticateUser(req)
 
       const bankAccountId = url.pathname.split('/').pop()
       const body: UpdateBankAccountData = await req.json()
@@ -219,8 +213,8 @@ Deno.serve(async (req) => {
 
     // DELETE bank account
     if (method === 'DELETE') {
-      // Check delete permission for DELETE requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'delete')
+      // Only check if user is logged in
+      const { user, supabase } = await authenticateUser(req)
 
       const bankAccountId = url.pathname.split('/').pop()
       
@@ -256,25 +250,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in admin-bank-accounts function:', error)
-    
-    // Handle specific error types
-    if (error.message === 'Missing authorization header' || error.message === 'Invalid authorization token') {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    if (error.message === 'Insufficient permissions') {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return handleAuthError(error)
   }
 })

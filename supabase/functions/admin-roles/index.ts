@@ -1,11 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { authenticateAndCheckPermission } from '../utils/permissionChecks.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-roles',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
+import { authenticateAndCheckPermission, corsHeaders, handleAuthError } from '../utils/authChecks.ts'
 
 interface Role {
   id: string
@@ -332,25 +326,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in admin-roles function:', error)
-    
-    // Handle specific error types
-    if (error.message === 'Missing authorization header' || error.message === 'Invalid authorization token') {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    if (error.message === 'Insufficient permissions') {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return handleAuthError(error)
   }
 })
