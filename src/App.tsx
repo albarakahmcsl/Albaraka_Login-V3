@@ -236,7 +236,7 @@ const router = createBrowserRouter([
       {
         path: 'admin/users',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'users', action: 'manage' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'users', action: 'read' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminUsers />
             </Suspense>
@@ -248,7 +248,7 @@ const router = createBrowserRouter([
       {
         path: 'admin/roles',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'roles', action: 'manage' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'roles', action: 'read' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminRoles />
             </Suspense>
@@ -260,7 +260,7 @@ const router = createBrowserRouter([
       {
         path: 'admin/permissions',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'permissions', action: 'manage' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'permissions', action: 'read' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminPermissions />
             </Suspense>
@@ -272,7 +272,7 @@ const router = createBrowserRouter([
       {
         path: 'admin/bank-accounts',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'bank_accounts', action: 'manage' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'bank_accounts', action: 'read' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminBankAccounts />
             </Suspense>
@@ -284,7 +284,7 @@ const router = createBrowserRouter([
       {
         path: 'admin/account-types',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'account_types', action: 'manage' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'account_types', action: 'read' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminAccountTypes />
             </Suspense>

@@ -419,6 +419,14 @@ Deno.serve(async (req) => {
 
     // DELETE user
     if (method === 'DELETE') {
+      // Check delete permission for DELETE requests
+      try {
+        await authenticateAndCheckPermission(req, 'users', 'delete')
+      } catch (deleteError) {
+        // Fall back to manage permission for backward compatibility
+        await authenticateAndCheckPermission(req, 'users', 'manage')
+      }
+
       const userId = url.pathname.split('/').pop()
       
       if (!userId) {

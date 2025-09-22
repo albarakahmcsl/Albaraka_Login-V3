@@ -213,6 +213,14 @@ Deno.serve(async (req) => {
 
     // DELETE bank account
     if (method === 'DELETE') {
+      // Check delete permission for DELETE requests
+      try {
+        await authenticateAndCheckPermission(req, 'bank_accounts', 'delete')
+      } catch (deleteError) {
+        // Fall back to manage permission for backward compatibility
+        await authenticateAndCheckPermission(req, 'bank_accounts', 'manage')
+      }
+
       const bankAccountId = url.pathname.split('/').pop()
       
       if (!bankAccountId) {

@@ -357,6 +357,14 @@ Deno.serve(async (req) => {
 
     // DELETE account type
     if (method === 'DELETE') {
+      // Check delete permission for DELETE requests
+      try {
+        await authenticateAndCheckPermission(req, 'account_types', 'delete')
+      } catch (deleteError) {
+        // Fall back to manage permission for backward compatibility
+        await authenticateAndCheckPermission(req, 'account_types', 'manage')
+      }
+
       const accountTypeId = url.pathname.split('/').pop()
       
       if (!accountTypeId) {

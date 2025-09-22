@@ -274,6 +274,14 @@ Deno.serve(async (req) => {
 
     // DELETE role
     if (method === 'DELETE') {
+      // Check delete permission for DELETE requests
+      try {
+        await authenticateAndCheckPermission(req, 'roles', 'delete')
+      } catch (deleteError) {
+        // Fall back to manage permission for backward compatibility
+        await authenticateAndCheckPermission(req, 'roles', 'manage')
+      }
+
       const roleId = url.pathname.split('/').pop()
       
       // Check if role is being used by any users
