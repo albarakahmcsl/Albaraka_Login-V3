@@ -3,6 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Key, Shield } from 'lucide-react'
 import { adminPermissionsApi, ApiError } from '../lib/dataFetching'
+import { 
+  getAllResources, 
+  getActionsForResource, 
+  getPermissionDescription,
+  getResourcesByCategory,
+  isValidPermission 
+} from '../constants/permissions'
 import type { Permission, CreatePermissionData, UpdatePermissionData } from '../types/auth'
 
 export function AdminPermissions() {
@@ -225,40 +232,98 @@ function CreatePermissionModal({
     action: '',
     description: ''
   })
+  const [selectedResource, setSelectedResource] = useState('')
+  const [availableActions, setAvailableActions] = useState<Array<{ value: string; label: string; description: string }>>([])
+
+  // Update available actions when resource changes
+  React.useEffect(() => {
+    if (selectedResource) {
+      const actions = getActionsForResource(selectedResource)
+      setAvailableActions(actions)
+      // Reset action when resource changes
+      setFormData(prev => ({ ...prev, action: '', description: '' }))
+    } else {
+      setAvailableActions([])
+    }
+  }, [selectedResource])
+
+  // Update description when resource and action are selected
+  React.useEffect(() => {
+    if (formData.resource && formData.action) {
+      const suggestedDescription = getPermissionDescription(formData.resource, formData.action)
+      setFormData(prev => ({ ...prev, description: suggestedDescription }))
+    }
+  }, [formData.resource, formData.action])
+
+  const handleResourceChange = (resource: string) => {
+    setSelectedResource(resource)
+    setFormData(prev => ({ ...prev, resource, action: '', description: '' }))
+  }
+
+  const handleActionChange = (action: string) => {
+    setFormData(prev => ({ ...prev, action }))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate the permission combination
+    if (!isValidPermission(formData.resource, formData.action)) {
+      alert('Invalid resource and action combination')
+      return
+    }
+    
     onSubmit(formData)
   }
 
+  const resourcesByCategory = getResourcesByCategory()
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Permission</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Resource</label>
-              <input
-                type="text"
+              <select
                 required
                 value={formData.resource}
-                onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
+                onChange={(e) => handleResourceChange(e.target.value)}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="e.g., users, reports, transactions"
-              />
+              >
+                <option value="">Select a resource</option>
+                {Object.entries(resourcesByCategory).map(([category, resources]) => (
+                  <optgroup key={category} label={category}>
+                    {resources.map((resource) => (
+                      <option key={resource.name} value={resource.name}>
+                        {resource.label} - {resource.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700">Action</label>
-              <input
-                type="text"
+              <select
                 required
                 value={formData.action}
-                onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
+                onChange={(e) => handleActionChange(e.target.value)}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="e.g., create, read, update, delete"
-              />
+                disabled={!selectedResource}
+              >
+                <option value="">Select an action</option>
+                {availableActions.map((action) => (
+                  <option key={action.value} value={action.value}>
+                    {action.label} - {action.description}
+                  </option>
+                ))}
+              </select>
+              {!selectedResource && (
+                <p className="text-xs text-gray-500 mt-1">Select a resource first to see available actions</p>
+              )}
             </div>
 
             <div>
@@ -268,8 +333,11 @@ function CreatePermissionModal({
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 rows={3}
-                placeholder="Describe what this permission allows"
+                placeholder="Description will be auto-filled based on your selection, but you can customize it"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                This description helps other administrators understand what this permission grants
+              </p>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -309,38 +377,104 @@ function EditPermissionModal({
     action: permission.action,
     description: permission.description || ''
   })
+  const [selectedResource, setSelectedResource] = useState(permission.resource)
+  const [availableActions, setAvailableActions] = useState<Array<{ value: string; label: string; description: string }>>([])
+
+  // Initialize available actions based on current resource
+  React.useEffect(() => {
+    if (selectedResource) {
+      const actions = getActionsForResource(selectedResource)
+      setAvailableActions(actions)
+    }
+  }, [selectedResource])
+
+  // Update available actions when resource changes
+  React.useEffect(() => {
+    if (selectedResource && selectedResource !== permission.resource) {
+      const actions = getActionsForResource(selectedResource)
+      setAvailableActions(actions)
+      // Reset action when resource changes (but not on initial load)
+      setFormData(prev => ({ ...prev, action: '', description: '' }))
+    }
+  }, [selectedResource, permission.resource])
+
+  // Update description when resource and action are selected
+  React.useEffect(() => {
+    if (formData.resource && formData.action && (formData.resource !== permission.resource || formData.action !== permission.action)) {
+      const suggestedDescription = getPermissionDescription(formData.resource, formData.action)
+      setFormData(prev => ({ ...prev, description: suggestedDescription }))
+    }
+  }, [formData.resource, formData.action, permission.resource, permission.action])
+
+  const handleResourceChange = (resource: string) => {
+    setSelectedResource(resource)
+    setFormData(prev => ({ ...prev, resource }))
+  }
+
+  const handleActionChange = (action: string) => {
+    setFormData(prev => ({ ...prev, action }))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate the permission combination
+    if (!isValidPermission(formData.resource, formData.action)) {
+      alert('Invalid resource and action combination')
+      return
+    }
+    
     onSubmit(formData)
   }
 
+  const resourcesByCategory = getResourcesByCategory()
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Permission</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Resource</label>
-              <input
-                type="text"
+              <select
                 required
                 value={formData.resource}
-                onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
+                onChange={(e) => handleResourceChange(e.target.value)}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              />
+              >
+                <option value="">Select a resource</option>
+                {Object.entries(resourcesByCategory).map(([category, resources]) => (
+                  <optgroup key={category} label={category}>
+                    {resources.map((resource) => (
+                      <option key={resource.name} value={resource.name}>
+                        {resource.label} - {resource.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700">Action</label>
-              <input
-                type="text"
+              <select
                 required
                 value={formData.action}
-                onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
+                onChange={(e) => handleActionChange(e.target.value)}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              />
+                disabled={!selectedResource}
+              >
+                <option value="">Select an action</option>
+                {availableActions.map((action) => (
+                  <option key={action.value} value={action.value}>
+                    {action.label} - {action.description}
+                  </option>
+                ))}
+              </select>
+              {!selectedResource && (
+                <p className="text-xs text-gray-500 mt-1">Select a resource first to see available actions</p>
+              )}
             </div>
 
             <div>
@@ -351,6 +485,9 @@ function EditPermissionModal({
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 rows={3}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                This description helps other administrators understand what this permission grants
+              </p>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
