@@ -63,19 +63,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const changePassword = useCallback(async (newPassword: string) => {
     console.log('[AuthContext] Changing password...')
+    if (!user?.id) throw new Error('No user logged in')
+
     try {
-      await authApi.updatePassword(newPassword)
-      console.log('[AuthContext] Password changed successfully')
-      
-      // If user needs password reset, update their profile
-      if (user?.needs_password_reset) {
-        await refreshUser()
+      // 1️⃣ Update password in Supabase
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+
+      if (passwordError) {
+        console.error('[AuthContext] Supabase password update error:', passwordError)
+        throw new Error(passwordError.message)
       }
+
+      console.log('[AuthContext] Password changed successfully in Supabase')
+
+      // 2️⃣ Update needs_password_reset in your database
+      const { error: profileUpdateError } = await supabase
+        .from('users') // Replace with your actual table name
+        .update({ needs_password_reset: false })
+        .eq('id', user.id)
+        .select()
+
+      if (profileUpdateError) {
+        console.error('[AuthContext] Failed to update needs_password_reset:', profileUpdateError)
+        throw new Error(profileUpdateError.message)
+      }
+
+      console.log('[AuthContext] needs_password_reset set to false in database')
+
+      // 3️⃣ Refresh user profile
+      await refreshUser()
+
     } catch (err: any) {
       console.error('[AuthContext] Error changing password:', err)
       throw new Error(err.message || 'Failed to change password')
     }
-  }, [user?.needs_password_reset, refreshUser])
+  }, [user?.id, refreshUser])
 
   const sendPasswordResetEmail = useCallback(async (email: string) => {
     console.log('[AuthContext] Sending password reset email to:', email)
@@ -83,9 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       })
-      if (error) {
-        throw error
-      }
+      if (error) throw error
       console.log('[AuthContext] Password reset email sent successfully')
     } catch (err: any) {
       console.error('[AuthContext] Error sending password reset email:', err)
@@ -93,9 +115,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
+  const signIn = useCallback(async (email: string, password: string) => {
+    console.log('[AuthContext] Attempting signIn for:', email)
+    setError(null)
+    setLoading(true)
+    
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      })
+      
+      if (signInError) {
+        console.error('[AuthContext] signIn error:', signInError)
+        setError(signInError.message)
+        setLoading(false)
+        return
+      }
+
+      console.log('[AuthContext] signIn successful, waiting for auth state change...')
+    } catch (err: any) {
+      console.error('[AuthContext] Unexpected signIn error:', err)
+      setError(err.message || 'Login failed')
+      setLoading(false)
+    }
+  }, [])
+
+  const signOut = useCallback(async () => {
+    console.log('[AuthContext] Signing out...')
+    setLoading(true)
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      setError(null)
+    } catch (err: any) {
+      console.error('[AuthContext] Error during signOut:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     console.log('[AuthContext] Setting up auth state listener...')
-    
+
     const init = async () => {
       try {
         console.log('[AuthContext] Getting initial session...')
@@ -118,36 +180,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         console.log('[AuthContext] Session found, fetching user profile...')
-        try {
-          const profile = await userProfileApi.fetchUserProfile(session.user.id)
-          
-          if (!profile) {
-            console.log('[AuthContext] User profile not found')
-            await supabase.auth.signOut()
-            setUser(null)
-            setError('User profile not found. Please contact an administrator.')
-            setLoading(false)
-            return
-          }
+        const profile = await userProfileApi.fetchUserProfile(session.user.id)
 
-          if (!profile.is_active) {
-            console.log('[AuthContext] User account is inactive')
-            await supabase.auth.signOut()
-            setUser(null)
-            setError('Your account is inactive. Please contact an administrator.')
-            setLoading(false)
-            return
-          }
-
-          console.log('[AuthContext] User profile loaded successfully:', profile)
-          setUser(profile)
-          setError(null)
-        } catch (profileError: any) {
-          console.error('[AuthContext] Error fetching user profile:', profileError)
+        if (!profile) {
+          console.log('[AuthContext] User profile not found')
           await supabase.auth.signOut()
           setUser(null)
-          setError('Failed to load user profile. Please try logging in again.')
+          setError('User profile not found. Please contact an administrator.')
+          setLoading(false)
+          return
         }
+
+        if (!profile.is_active) {
+          console.log('[AuthContext] User account is inactive')
+          await supabase.auth.signOut()
+          setUser(null)
+          setError('Your account is inactive. Please contact an administrator.')
+          setLoading(false)
+          return
+        }
+
+        console.log('[AuthContext] User profile loaded successfully:', profile)
+        setUser(profile)
+        setError(null)
+
       } catch (err: any) {
         console.error('[AuthContext] Initialization error:', err)
         setUser(null)
@@ -171,37 +227,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           console.log('[AuthContext] User signed in or token refreshed, fetching profile...')
+          const profile = await userProfileApi.fetchUserProfile(session.user.id)
           
-          try {
-            const profile = await userProfileApi.fetchUserProfile(session.user.id)
-            
-            if (!profile) {
-              console.log('[AuthContext] User profile not found')
-              await supabase.auth.signOut()
-              setUser(null)
-              setError('User profile not found. Please contact an administrator.')
-              setLoading(false)
-              return
-            }
-
-            if (!profile.is_active) {
-              console.log('[AuthContext] User account is inactive')
-              await supabase.auth.signOut()
-              setUser(null)
-              setError('Your account is inactive. Please contact an administrator.')
-              setLoading(false)
-              return
-            }
-
-            console.log('[AuthContext] User profile loaded:', profile)
-            setUser(profile)
-            setError(null)
-          } catch (profileError: any) {
-            console.error('[AuthContext] Error fetching user profile:', profileError)
+          if (!profile) {
+            console.log('[AuthContext] User profile not found')
             await supabase.auth.signOut()
             setUser(null)
-            setError('Failed to load user profile. Please try logging in again.')
+            setError('User profile not found. Please contact an administrator.')
+            setLoading(false)
+            return
           }
+
+          if (!profile.is_active) {
+            console.log('[AuthContext] User account is inactive')
+            await supabase.auth.signOut()
+            setUser(null)
+            setError('Your account is inactive. Please contact an administrator.')
+            setLoading(false)
+            return
+          }
+
+          console.log('[AuthContext] User profile loaded:', profile)
+          setUser(profile)
+          setError(null)
         }
       } catch (err: any) {
         console.error('[AuthContext] onAuthStateChange ERROR:', err.message)
@@ -216,47 +264,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       console.log('[AuthContext] Cleaning up auth listener...')
       subscription.unsubscribe()
-    }
-  }, [])
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    console.log('[AuthContext] Attempting signIn for:', email)
-    setError(null)
-    setLoading(true)
-    
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ 
-        email, 
-        password 
-      })
-      
-      if (signInError) {
-        console.error('[AuthContext] signIn error:', signInError)
-        setError(signInError.message)
-        setLoading(false)
-        return
-      }
-      
-      console.log('[AuthContext] signIn successful, waiting for auth state change...')
-      // The onAuthStateChange listener will handle the rest
-    } catch (err: any) {
-      console.error('[AuthContext] Unexpected signIn error:', err)
-      setError(err.message || 'Login failed')
-      setLoading(false)
-    }
-  }, [])
-
-  const signOut = useCallback(async () => {
-    console.log('[AuthContext] Signing out...')
-    setLoading(true)
-    try {
-      await supabase.auth.signOut()
-      setUser(null)
-      setError(null)
-    } catch (err: any) {
-      console.error('[AuthContext] Error during signOut:', err)
-    } finally {
-      setLoading(false)
     }
   }, [])
 
