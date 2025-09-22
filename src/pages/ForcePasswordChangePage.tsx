@@ -20,13 +20,14 @@ export function ForcePasswordChangePage() {
     errors: string[]
   } | null>(null)
 
+  // Redirect if user shouldn't be here
   useEffect(() => {
-    // Only redirect after auth has finished loading and user no longer needs password reset
-    if (!authLoading && user && !user.needs_password_reset) {
+    if (!authLoading && (!user || !user.needs_password_reset)) {
       navigate('/dashboard', { replace: true })
     }
   }, [user, authLoading, navigate])
 
+  // Validate password strength
   useEffect(() => {
     if (password) {
       validatePasswordStrength(password).then(result => {
@@ -64,13 +65,17 @@ export function ForcePasswordChangePage() {
     }
 
     try {
-      // Force password change and immediately update local user state
+      // Change password and clear reset flag
       await changePassword(password, true)
-
-      setMessage('Your password has been successfully changed. Redirecting to dashboard...')
+      setMessage('Your password has been successfully changed. Redirecting to login...')
       setIsSuccess(true)
       setPassword('')
       setConfirmPassword('')
+
+      // Clear session and redirect to login
+      await signOut()
+      navigate('/login', { replace: true })
+
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to change password.')
       setIsSuccess(false)
@@ -79,7 +84,8 @@ export function ForcePasswordChangePage() {
     }
   }
 
-  if (authLoading || !user) {
+  // Show spinner while loading auth state or password change
+  if (authLoading || isLoading || !user || !user.needs_password_reset) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-600"></div>
@@ -135,7 +141,11 @@ export function ForcePasswordChangePage() {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
                 </button>
               </div>
               {passwordValidation && (
@@ -174,7 +184,11 @@ export function ForcePasswordChangePage() {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
                 </button>
               </div>
             </div>
