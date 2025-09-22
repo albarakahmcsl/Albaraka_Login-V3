@@ -23,42 +23,6 @@ interface User {
   }>
 }
 
-function deriveAccessFields(permissions: Array<{ resource: string; action: string }>) {
-  const menuAccess: string[] = []
-  const subMenuAccess: Record<string, string[]> = {}
-  const componentAccess: string[] = []
-
-  const resourceToMenuMap: Record<string, string> = {
-    dashboard: 'dashboard',
-    users: 'user-management',
-    roles: 'role-management',
-    permissions: 'permission-management',
-    bank_accounts: 'bank-accounts',
-    account_types: 'account-types',
-    reports: 'reports',
-    transactions: 'transactions',
-    analytics: 'analytics',
-    admin: 'admin-panel',
-  }
-
-  permissions.forEach((permission) => {
-    const menuId = resourceToMenuMap[permission.resource]
-    if (menuId && !menuAccess.includes(menuId)) menuAccess.push(menuId)
-
-    if (['manage', 'create', 'access'].includes(permission.action)) {
-      const componentId = `${permission.resource}-${permission.action}`
-      if (!componentAccess.includes(componentId)) componentAccess.push(componentId)
-    }
-  })
-
-  if (!menuAccess.includes('dashboard')) menuAccess.push('dashboard')
-
-  return {
-    menu_access: menuAccess,
-    sub_menu_access: subMenuAccess,
-    component_access: componentAccess,
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
