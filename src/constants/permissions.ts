@@ -23,6 +23,20 @@ export interface ResourceDefinition {
   }>
 }
 
+// Universal CRUD actions that can be applied to any resource
+export const UNIVERSAL_CRUD_ACTIONS = [
+  { name: 'read', label: 'Read', description: 'View and read information' },
+  { name: 'create', label: 'Create', description: 'Create new records' },
+  { name: 'update', label: 'Update', description: 'Modify existing records' },
+  { name: 'delete', label: 'Delete', description: 'Remove records from the system' },
+  { name: 'manage', label: 'Manage', description: 'Full management capabilities (all actions)' },
+  { name: 'view', label: 'View', description: 'View detailed information and reports' },
+  { name: 'other', label: 'Other', description: 'Other specialized actions' },
+]
+
+// Resources that should only use their specific actions (no universal actions)
+const UI_SPECIFIC_RESOURCES = ['ui_menu', 'ui_component']
+
 // Define all available resources and their actions
 export const PERMISSION_RESOURCES: ResourceDefinition[] = [
   // Core System Resources
@@ -43,7 +57,6 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     category: 'Core System',
     actions: [
       { name: 'access', label: 'Access', description: 'Access administrative panels and functions' },
-      { name: 'manage', label: 'Manage', description: 'Full administrative management capabilities' },
     ]
   },
 
@@ -54,11 +67,6 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'User accounts and profiles',
     category: 'User Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View user information and profiles' },
-      { name: 'create', label: 'Create', description: 'Create new user accounts' },
-      { name: 'update', label: 'Update', description: 'Modify existing user accounts' },
-      { name: 'delete', label: 'Delete', description: 'Remove user accounts from the system' },
-      { name: 'manage', label: 'Manage', description: 'Full user management (create, read, update, delete)' },
       { name: 'activate', label: 'Activate', description: 'Activate or deactivate user accounts' },
       { name: 'reset_password', label: 'Reset Password', description: 'Force password reset for users' },
     ]
@@ -69,11 +77,6 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'User roles and role assignments',
     category: 'User Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View roles and role information' },
-      { name: 'create', label: 'Create', description: 'Create new roles' },
-      { name: 'update', label: 'Update', description: 'Modify existing roles' },
-      { name: 'delete', label: 'Delete', description: 'Remove roles from the system' },
-      { name: 'manage', label: 'Manage', description: 'Full role management (create, read, update, delete)' },
       { name: 'assign', label: 'Assign', description: 'Assign roles to users' },
     ]
   },
@@ -83,11 +86,7 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'System permissions and access control',
     category: 'User Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View permissions and permission information' },
-      { name: 'create', label: 'Create', description: 'Create new permissions' },
-      { name: 'update', label: 'Update', description: 'Modify existing permissions' },
-      { name: 'delete', label: 'Delete', description: 'Remove permissions from the system' },
-      { name: 'manage', label: 'Manage', description: 'Full permission management (create, read, update, delete)' },
+      // No specific actions - will use universal CRUD actions
     ]
   },
 
@@ -98,11 +97,7 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Bank account management',
     category: 'Financial Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View bank account information' },
-      { name: 'create', label: 'Create', description: 'Create new bank accounts' },
-      { name: 'update', label: 'Update', description: 'Modify existing bank accounts' },
-      { name: 'delete', label: 'Delete', description: 'Remove bank accounts from the system' },
-      { name: 'manage', label: 'Manage', description: 'Full bank account management (create, read, update, delete)' },
+      // No specific actions - will use universal CRUD actions
     ]
   },
   {
@@ -111,11 +106,6 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Islamic finance account type configurations',
     category: 'Financial Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View account type configurations' },
-      { name: 'create', label: 'Create', description: 'Create new account types' },
-      { name: 'update', label: 'Update', description: 'Modify existing account types' },
-      { name: 'delete', label: 'Delete', description: 'Remove account types from the system' },
-      { name: 'manage', label: 'Manage', description: 'Full account type management (create, read, update, delete)' },
       { name: 'configure', label: 'Configure', description: 'Configure account type rules and properties' },
     ]
   },
@@ -125,13 +115,8 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Financial transactions and transfers',
     category: 'Financial Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View transaction information' },
-      { name: 'create', label: 'Create', description: 'Process new transactions' },
-      { name: 'update', label: 'Update', description: 'Modify existing transactions' },
-      { name: 'delete', label: 'Delete', description: 'Cancel or remove transactions' },
       { name: 'approve', label: 'Approve', description: 'Approve pending transactions' },
       { name: 'reject', label: 'Reject', description: 'Reject pending transactions' },
-      { name: 'manage', label: 'Manage', description: 'Full transaction management capabilities' },
     ]
   },
 
@@ -142,11 +127,8 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'System reports and analytics',
     category: 'Reporting & Analytics',
     actions: [
-      { name: 'view', label: 'View', description: 'View existing reports' },
-      { name: 'create', label: 'Create', description: 'Generate new reports' },
       { name: 'export', label: 'Export', description: 'Export reports to various formats' },
       { name: 'schedule', label: 'Schedule', description: 'Schedule automated report generation' },
-      { name: 'manage', label: 'Manage', description: 'Full report management capabilities' },
     ]
   },
   {
@@ -155,10 +137,7 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Business intelligence and data analytics',
     category: 'Reporting & Analytics',
     actions: [
-      { name: 'view', label: 'View', description: 'View analytics dashboards and insights' },
-      { name: 'create', label: 'Create', description: 'Create custom analytics views' },
       { name: 'export', label: 'Export', description: 'Export analytics data' },
-      { name: 'manage', label: 'Manage', description: 'Full analytics management capabilities' },
     ]
   },
 
@@ -169,11 +148,6 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Customer accounts and profiles',
     category: 'Customer Management',
     actions: [
-      { name: 'read', label: 'Read', description: 'View customer information' },
-      { name: 'create', label: 'Create', description: 'Create new customer accounts' },
-      { name: 'update', label: 'Update', description: 'Modify customer information' },
-      { name: 'delete', label: 'Delete', description: 'Remove customer accounts' },
-      { name: 'manage', label: 'Manage', description: 'Full customer management capabilities' },
       { name: 'kyc', label: 'KYC Management', description: 'Manage Know Your Customer processes' },
     ]
   },
@@ -183,13 +157,8 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Islamic finance loan products and applications',
     category: 'Financial Products',
     actions: [
-      { name: 'read', label: 'Read', description: 'View loan information and applications' },
-      { name: 'create', label: 'Create', description: 'Create new loan products' },
-      { name: 'update', label: 'Update', description: 'Modify loan terms and conditions' },
-      { name: 'delete', label: 'Delete', description: 'Remove loan products' },
       { name: 'approve', label: 'Approve', description: 'Approve loan applications' },
       { name: 'reject', label: 'Reject', description: 'Reject loan applications' },
-      { name: 'manage', label: 'Manage', description: 'Full loan management capabilities' },
     ]
   },
   {
@@ -198,11 +167,7 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'Sharia-compliant investment products',
     category: 'Financial Products',
     actions: [
-      { name: 'read', label: 'Read', description: 'View investment products and portfolios' },
-      { name: 'create', label: 'Create', description: 'Create new investment products' },
-      { name: 'update', label: 'Update', description: 'Modify investment terms' },
-      { name: 'delete', label: 'Delete', description: 'Remove investment products' },
-      { name: 'manage', label: 'Manage', description: 'Full investment management capabilities' },
+      // No specific actions - will use universal CRUD actions
     ]
   },
 
@@ -213,9 +178,7 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'System configuration and settings',
     category: 'System Configuration',
     actions: [
-      { name: 'read', label: 'Read', description: 'View system settings' },
-      { name: 'update', label: 'Update', description: 'Modify system settings' },
-      { name: 'manage', label: 'Manage', description: 'Full system settings management' },
+      // No specific actions - will use universal CRUD actions
     ]
   },
   {
@@ -224,9 +187,7 @@ export const PERMISSION_RESOURCES: ResourceDefinition[] = [
     description: 'System audit trails and logs',
     category: 'System Configuration',
     actions: [
-      { name: 'read', label: 'Read', description: 'View audit logs and system activity' },
       { name: 'export', label: 'Export', description: 'Export audit logs for compliance' },
-      { name: 'manage', label: 'Manage', description: 'Full audit log management' },
     ]
   },
 
@@ -270,17 +231,57 @@ export const getAllResources = (): Array<{ value: string; label: string; descrip
 
 export const getActionsForResource = (resourceName: string): Array<{ value: string; label: string; description: string }> => {
   const resource = PERMISSION_RESOURCES.find(r => r.name === resourceName)
-  return resource ? resource.actions.map(action => ({
+  
+  if (!resource) return []
+  
+  // For UI-specific resources, only return their specific actions
+  if (UI_SPECIFIC_RESOURCES.includes(resourceName)) {
+    return resource.actions.map(action => ({
+      value: action.name,
+      label: action.label,
+      description: action.description
+    }))
+  }
+  
+  // For all other resources, combine specific actions with universal CRUD actions
+  const specificActions = resource.actions.map(action => ({
     value: action.name,
     label: action.label,
     description: action.description
-  })) : []
+  }))
+  
+  const universalActions = UNIVERSAL_CRUD_ACTIONS.map(action => ({
+    value: action.name,
+    label: action.label,
+    description: action.description
+  }))
+  
+  // Combine and remove duplicates (specific actions take precedence)
+  const allActions = [...specificActions, ...universalActions]
+  const uniqueActions = allActions.filter((action, index, array) => 
+    array.findIndex(a => a.value === action.value) === index
+  )
+  
+  return uniqueActions
 }
 
 export const getPermissionDescription = (resourceName: string, actionName: string): string => {
   const resource = PERMISSION_RESOURCES.find(r => r.name === resourceName)
-  const action = resource?.actions.find(a => a.name === actionName)
-  return action?.description || `${actionName} permission for ${resourceName}`
+  
+  // First check if it's a specific action for this resource
+  const specificAction = resource?.actions.find(a => a.name === actionName)
+  if (specificAction) {
+    return specificAction.description
+  }
+  
+  // Then check if it's a universal CRUD action
+  const universalAction = UNIVERSAL_CRUD_ACTIONS.find(a => a.name === actionName)
+  if (universalAction) {
+    return `${universalAction.description} for ${resource?.label || resourceName}`
+  }
+  
+  // Fallback to generic description
+  return `${actionName} permission for ${resourceName}`
 }
 
 export const getResourceCategories = (): string[] => {
