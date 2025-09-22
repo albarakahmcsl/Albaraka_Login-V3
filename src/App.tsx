@@ -175,6 +175,11 @@ const adminAccountTypesLoader = async () => {
     }
   } catch (error) {
     console.error('[App] adminAccountTypesLoader ERROR:', error)
+    // Handle permission errors gracefully - return empty data instead of throwing
+    if (error.message === 'Insufficient permissions') {
+      console.log('[App] adminAccountTypesLoader - User lacks permissions, returning empty data')
+      return { accountTypes: [], bankAccounts: [] }
+    }
     return { accountTypes: [], bankAccounts: [] }
   }
 }
