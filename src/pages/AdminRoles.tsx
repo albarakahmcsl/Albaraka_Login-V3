@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Shield, Users } from 'lucide-react'
-import { adminRolesApi, adminPermissionsApi, ApiError } from '../lib/dataFetching'
+import { rolesManagementApi, permissionsManagementApi, ApiError } from '../lib/dataFetching'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPermission } from '../utils/permissions'
 import type { Role, Permission, CreateRoleData, UpdateRoleData } from '../types/auth'
@@ -20,25 +20,25 @@ export function AdminRoles() {
 
   // Fetch roles and permissions
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
-    queryKey: queryKeys.adminRoles(),
-    queryFn: adminRolesApi.getRoles,
+    queryKey: queryKeys.rolesManagement(),
+    queryFn: rolesManagementApi.getRoles,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'roles', 'view'),
   })
 
   const { data: permissions = [] } = useQuery({
-    queryKey: queryKeys.adminPermissions(),
-    queryFn: adminPermissionsApi.getPermissions,
+    queryKey: queryKeys.permissionsManagement(),
+    queryFn: permissionsManagementApi.getPermissions,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'permissions', 'view'),
   })
 
   // Mutations for role operations
   const createRoleMutation = useMutation({
-    mutationFn: adminRolesApi.createRole,
+    mutationFn: rolesManagementApi.createRole,
     onSuccess: () => {
       setSuccess('Role created successfully')
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create role')
@@ -47,13 +47,13 @@ export function AdminRoles() {
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ roleId, roleData }: { roleId: string; roleData: UpdateRoleData }) =>
-      adminRolesApi.updateRole(roleId, roleData),
+      rolesManagementApi.updateRole(roleId, roleData),
     onSuccess: () => {
       setSuccess('Role updated successfully')
       setShowEditModal(false)
       setSelectedRole(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update role')
@@ -61,11 +61,11 @@ export function AdminRoles() {
   })
 
   const deleteRoleMutation = useMutation({
-    mutationFn: adminRolesApi.deleteRole,
+    mutationFn: rolesManagementApi.deleteRole,
     onSuccess: () => {
       setSuccess('Role deleted successfully')
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete role')

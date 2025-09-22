@@ -39,13 +39,13 @@ export const queryKeys = {
   dashboardStats: () => ['dashboard', 'stats'] as const,
   dashboardActivity: () => ['dashboard', 'activity'] as const,
   
-  // Admin queries
-  adminUsers: () => ['admin', 'users'] as const,
+  // Management queries
+  usersManagement: () => ['management', 'users'] as const,
   roles: () => ['roles'] as const,
-  adminRoles: () => ['admin', 'roles'] as const,
-  adminPermissions: () => ['admin', 'permissions'] as const,
-  bankAccounts: () => ['admin', 'bankAccounts'] as const,
-  accountTypes: () => ['admin', 'accountTypes'] as const,
+  rolesManagement: () => ['management', 'roles'] as const,
+  permissionsManagement: () => ['management', 'permissions'] as const,
+  bankAccountsManagement: () => ['management', 'bankAccounts'] as const,
+  accountTypesManagement: () => ['management', 'accountTypes'] as const,
   
   // Auth queries
   currentUser: () => ['auth', 'currentUser'] as const,

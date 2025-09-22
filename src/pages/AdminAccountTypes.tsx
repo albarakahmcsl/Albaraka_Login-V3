@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign } from 'lucide-react'
 import { FileText, CheckCircle2, XCircle as XCircle2 } from 'lucide-react'
-import { accountTypesApi, bankAccountsApi, ApiError } from '../lib/dataFetching'
+import { accountTypesManagementApi, bankAccountsManagementApi, ApiError } from '../lib/dataFetching'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPermission } from '../utils/permissions'
 import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAccount } from '../types'
@@ -32,25 +32,25 @@ export function AdminAccountTypes() {
 
   // Fetch account types and bank accounts
   const { data: accountTypesData, isLoading: accountTypesLoading } = useQuery({
-    queryKey: queryKeys.accountTypes(),
-    queryFn: accountTypesApi.getAccountTypes,
+    queryKey: queryKeys.accountTypesManagement(),
+    queryFn: accountTypesManagementApi.getAccountTypes,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'account_types', 'view'),
   })
 
   const { data: bankAccountsData } = useQuery({
-    queryKey: queryKeys.bankAccounts(),
-    queryFn: bankAccountsApi.getBankAccounts,
+    queryKey: queryKeys.bankAccountsManagement(),
+    queryFn: bankAccountsManagementApi.getBankAccounts,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'bank_accounts', 'view'),
   })
 
   // Mutations for account type operations
   const createAccountTypeMutation = useMutation({
-    mutationFn: accountTypesApi.createAccountType,
+    mutationFn: accountTypesManagementApi.createAccountType,
     onSuccess: () => {
       setSuccess('Account type created successfully')
       setError(null)
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypes() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypesManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create account type')
@@ -60,13 +60,13 @@ export function AdminAccountTypes() {
 
   const updateAccountTypeMutation = useMutation({
     mutationFn: ({ accountTypeId, accountTypeData }: { accountTypeId: string; accountTypeData: UpdateAccountTypeData }) =>
-      accountTypesApi.updateAccountType(accountTypeId, accountTypeData),
+      accountTypesManagementApi.updateAccountType(accountTypeId, accountTypeData),
     onSuccess: () => {
       setSuccess('Account type updated successfully')
       setError(null)
       setShowEditModal(false)
       setSelectedAccountType(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypes() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypesManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update account type')
@@ -75,11 +75,11 @@ export function AdminAccountTypes() {
   })
 
   const deleteAccountTypeMutation = useMutation({
-    mutationFn: accountTypesApi.deleteAccountType,
+    mutationFn: accountTypesManagementApi.deleteAccountType,
     onSuccess: () => {
       setSuccess('Account type deleted successfully')
       setError(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypes() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypesManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete account type')

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Key, Shield } from 'lucide-react'
-import { adminPermissionsApi, ApiError } from '../lib/dataFetching'
+import { permissionsManagementApi, ApiError } from '../lib/dataFetching'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPermission } from '../utils/permissions'
 import { 
@@ -27,19 +27,19 @@ export function AdminPermissions() {
 
   // Fetch permissions
   const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
-    queryKey: queryKeys.adminPermissions(),
-    queryFn: adminPermissionsApi.getPermissions,
+    queryKey: queryKeys.permissionsManagement(),
+    queryFn: permissionsManagementApi.getPermissions,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'permissions', 'view'),
   })
 
   // Mutations for permission operations
   const createPermissionMutation = useMutation({
-    mutationFn: adminPermissionsApi.createPermission,
+    mutationFn: permissionsManagementApi.createPermission,
     onSuccess: () => {
       setSuccess('Permission created successfully')
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminPermissions() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.permissionsManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create permission')
@@ -48,13 +48,13 @@ export function AdminPermissions() {
 
   const updatePermissionMutation = useMutation({
     mutationFn: ({ permissionId, permissionData }: { permissionId: string; permissionData: UpdatePermissionData }) =>
-      adminPermissionsApi.updatePermission(permissionId, permissionData),
+      permissionsManagementApi.updatePermission(permissionId, permissionData),
     onSuccess: () => {
       setSuccess('Permission updated successfully')
       setShowEditModal(false)
       setSelectedPermission(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminPermissions() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.permissionsManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update permission')
@@ -62,11 +62,11 @@ export function AdminPermissions() {
   })
 
   const deletePermissionMutation = useMutation({
-    mutationFn: adminPermissionsApi.deletePermission,
+    mutationFn: permissionsManagementApi.deletePermission,
     onSuccess: () => {
       setSuccess('Permission deleted successfully')
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminPermissions() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.permissionsManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete permission')

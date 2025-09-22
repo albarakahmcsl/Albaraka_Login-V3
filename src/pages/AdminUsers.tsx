@@ -3,7 +3,7 @@ import { useLoaderData } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Shield } from 'lucide-react'
-import { adminUsersApi, adminRolesApi, ApiError } from '../lib/dataFetching'
+import { usersManagementApi, rolesManagementApi, ApiError } from '../lib/dataFetching'
 import { generateTemporaryPassword } from '../utils/validation'
 import { ConfirmationModal } from '../components/ConfirmationModal'
 import { useAuth } from '../contexts/AuthContext'
@@ -27,26 +27,26 @@ export function AdminUsers() {
 
   // Use React Query with initial data from loader
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: queryKeys.adminUsers(),
-    queryFn: adminUsersApi.getUsers,
+    queryKey: queryKeys.usersManagement(),
+    queryFn: usersManagementApi.getUsers,
     initialData: { users: loaderData.users },
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'users', 'view'),
   })
 
   const { data: roles } = useQuery({
-    queryKey: queryKeys.adminRoles(),
-    queryFn: adminRolesApi.getRoles,
+    queryKey: queryKeys.rolesManagement(),
+    queryFn: rolesManagementApi.getRoles,
     initialData: loaderData.roles,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'roles', 'view'),
   })
 
   // Mutations for user operations
   const createUserMutation = useMutation({
-    mutationFn: adminUsersApi.createUser,
+    mutationFn: usersManagementApi.createUser,
     onSuccess: () => {
       setSuccess('User created successfully')
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create user')
@@ -55,12 +55,12 @@ export function AdminUsers() {
 
   const updateUserMutation = useMutation({
     mutationFn: ({ userId, userData }: { userId: string; userData: UpdateUserData }) =>
-      adminUsersApi.updateUser(userId, userData),
+      usersManagementApi.updateUser(userId, userData),
     onSuccess: () => {
       setSuccess('User updated successfully')
       setShowEditModal(false)
       setSelectedUser(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update user')
@@ -68,11 +68,11 @@ export function AdminUsers() {
   })
 
   const deleteUserMutation = useMutation({
-    mutationFn: adminUsersApi.deleteUser,
+    mutationFn: usersManagementApi.deleteUser,
     onSuccess: () => {
       setSuccess('User deleted successfully')
       // Optimistically update the UI by removing the deleted user from the cache
-      queryClient.setQueryData(queryKeys.adminUsers(), (oldData: { users: User[] } | undefined) => {
+      queryClient.setQueryData(queryKeys.usersManagement(), (oldData: { users: User[] } | undefined) => {
         if (!oldData || !userToDeleteId) return oldData
         return {
           ...oldData,
@@ -84,7 +84,7 @@ export function AdminUsers() {
       setUserToDeleteId(null)
       setUserToDeleteName('')
       // Still invalidate to ensure data consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete user')

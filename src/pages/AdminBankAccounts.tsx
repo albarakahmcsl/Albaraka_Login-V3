@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Banknote } from 'lucide-react'
-import { bankAccountsApi, ApiError } from '../lib/dataFetching'
+import { bankAccountsManagementApi, ApiError } from '../lib/dataFetching'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPermission } from '../utils/permissions'
 import type { BankAccount, CreateBankAccountData, UpdateBankAccountData } from '../types'
@@ -31,19 +31,19 @@ export function AdminBankAccounts() {
 
   // Fetch bank accounts
   const { data: bankAccountsData, isLoading: bankAccountsLoading } = useQuery({
-    queryKey: queryKeys.bankAccounts(),
-    queryFn: bankAccountsApi.getBankAccounts,
+    queryKey: queryKeys.bankAccountsManagement(),
+    queryFn: bankAccountsManagementApi.getBankAccounts,
     enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'bank_accounts', 'view'),
   })
 
   // Mutations for bank account operations
   const createBankAccountMutation = useMutation({
-    mutationFn: bankAccountsApi.createBankAccount,
+    mutationFn: bankAccountsManagementApi.createBankAccount,
     onSuccess: () => {
       setSuccess('Bank account created successfully')
       setError(null)
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.bankAccounts() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.bankAccountsManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create bank account')
@@ -53,13 +53,13 @@ export function AdminBankAccounts() {
 
   const updateBankAccountMutation = useMutation({
     mutationFn: ({ bankAccountId, bankAccountData }: { bankAccountId: string; bankAccountData: UpdateBankAccountData }) =>
-      bankAccountsApi.updateBankAccount(bankAccountId, bankAccountData),
+      bankAccountsManagementApi.updateBankAccount(bankAccountId, bankAccountData),
     onSuccess: () => {
       setSuccess('Bank account updated successfully')
       setError(null)
       setShowEditModal(false)
       setSelectedBankAccount(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.bankAccounts() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.bankAccountsManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update bank account')
@@ -68,11 +68,11 @@ export function AdminBankAccounts() {
   })
 
   const deleteBankAccountMutation = useMutation({
-    mutationFn: bankAccountsApi.deleteBankAccount,
+    mutationFn: bankAccountsManagementApi.deleteBankAccount,
     onSuccess: () => {
       setSuccess('Bank account deleted successfully')
       setError(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.bankAccounts() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.bankAccountsManagement() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete bank account')
