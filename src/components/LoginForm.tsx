@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react'
@@ -13,15 +13,16 @@ export function LoginForm() {
 
   const from = location.state?.from?.pathname || '/'
 
+  // Ref to avoid repeated navigation
+  const hasNavigatedRef = useRef(false)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
       await signIn(credentials.email, credentials.password)
-      
-      // The signIn function in AuthContext will automatically set the user
-      // We'll handle navigation in a useEffect that watches for user changes
+      // AuthContext updates `user` automatically
     } catch (error) {
       console.error('Login failed:', error)
     } finally {
@@ -29,9 +30,10 @@ export function LoginForm() {
     }
   }
 
-  // Handle navigation after successful login
-  React.useEffect(() => {
-    if (user && !isLoading) {
+  useEffect(() => {
+    if (user && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true
+
       if (user.needs_password_reset) {
         navigate('/force-password-change', { replace: true })
       } else if (user.roles?.some(role => role.name === 'admin')) {
@@ -40,7 +42,7 @@ export function LoginForm() {
         navigate('/dashboard', { replace: true })
       }
     }
-  }, [user, isLoading, navigate])
+  }, [user, navigate])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
