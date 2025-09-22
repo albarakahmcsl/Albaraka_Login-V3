@@ -39,12 +39,44 @@ export const getAuthHeaders = async () => {
   const { data: { session } } = await supabase.auth.getSession()
   const userId = session?.user?.id
 
-  // Get user roles from cache
+  // Ensure user profile with roles is fetched and cached
   let userRoles: string[] = []
   if (userId) {
-    const cachedProfile = queryClient.getQueryData(['userProfile', userId]) as any
-    if (cachedProfile?.roles) {
-      userRoles = cachedProfile.roles.map((role: any) => role.name)
+    try {
+      const userProfile = await queryClient.fetchQuery({
+        queryKey: ['userProfile', userId],
+        queryFn: async () => {
+          const { data, error } = await supabase
+            .from('users')
+            .select(`
+              *,
+              user_roles(
+                roles(
+                  id,
+                  name,
+                  description
+                )
+              )
+            `)
+            .eq('id', userId)
+            .single()
+
+          if (error) throw error
+
+          return {
+            ...data,
+            roles: data.user_roles?.map((ur: any) => ur.roles) || []
+          }
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+      })
+
+      if (userProfile?.roles) {
+        userRoles = userProfile.roles.map((role: any) => role.name)
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error)
+      // Continue with empty roles array
     }
   }
 
