@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { authApi, userProfileApi } from '../lib/dataFetching'
 import { queryClient, queryKeys } from '../lib/queryClient'
@@ -7,6 +7,9 @@ import { withTimeout, deepEqual } from '../utils/helpers'
 
 // Local storage key for caching user profile
 const USER_PROFILE_CACHE_KEY = 'user_profile_cache'
+
+// Inactivity timeout duration (15 minutes in milliseconds)
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000
 
 // Helper functions for localStorage operations
 const saveUserToCache = (user: any) => {
@@ -66,6 +69,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<any | null>(null)
   const [loading, setLoading] = useState(true) // Start with true for initial session check
   const [error, setError] = useState<string | null>(null)
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  /**
+   * Resets the inactivity timer. Called whenever user activity is detected.
+   */
+  const resetInactivityTimer = useCallback(() => {
+    // Clear existing timer
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+    }
+
+    // Only set timer if user is logged in
+    if (user) {
+      console.log('[AuthContext] resetInactivityTimer - Setting 15-minute inactivity timer')
+      inactivityTimerRef.current = setTimeout(() => {
+        console.log('[AuthContext] Inactivity timeout reached - logging out user')
+        signOut()
+      }, INACTIVITY_TIMEOUT)
+    }
+  }, [user]) // Dependencies: user
 
   /**
    * Fetches extra profile data from your custom `users` table
@@ -188,8 +212,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setUser(freshProfile)
             saveUserToCache(freshProfile)
             clearPermissionCache()
+            resetInactivityTimer() // Reset timer when user profile is updated
           } else {
             console.log('[AuthContext] Auth state change - Profile unchanged, keeping current state')
+            resetInactivityTimer() // Still reset timer to maintain activity
           }
         } else {
           console.log('[AuthContext] Auth state change - No session, clearing user')
@@ -220,17 +246,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     })
 
+    // Set up activity listeners for inactivity detection
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+    
+    const handleActivity = () => {
+      resetInactivityTimer()
+    }
+
+    // Add event listeners for user activity
+    activityEvents.forEach(event => {
+      document.addEventListener(event, handleActivity, true)
+    })
+
     return () => {
       console.log('[AuthContext] Cleaning up auth state listener')
       subscription.subscription.unsubscribe()
+      
+      // Clean up activity listeners
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, handleActivity, true)
+      })
+      
+      // Clear inactivity timer
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+        inactivityTimerRef.current = null
+      }
     }
-  }, [])
 
   /**
    * Signs in a user with email + password using Supabase auth.
    * If successful, fetches their extended profile and saves it locally.
    */
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     console.log('[AuthContext] signIn START - email:', email)
     setLoading(true)
     setError(null)
@@ -262,6 +310,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(profile)
         clearPermissionCache()
         saveUserToCache(profile)
+        resetInactivityTimer() // Start inactivity timer after successful login
         console.log('[AuthContext] signIn SUCCESS - user set:', profile)
       }
     } catch (err: any) {
@@ -272,13 +321,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.log('[AuthContext] signIn - Setting loading to false')
       setLoading(false)
     }
-  }
+  }, [resetInactivityTimer])
 
   /**
    * Logs the user out from Supabase and clears local state.
    */
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     console.log('[AuthContext] signOut START')
+    
+    // Clear inactivity timer
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+    }
     
     // Clear user profile from React Query cache
     if (user?.id) {
@@ -302,7 +357,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('[AuthContext] signOut ERROR:', err)
       // Don't show error for signout failures - user is already logged out from UI perspective
     }
-  }
+  }, [user])
 
   /**
    * Changes the user's password using the secure Edge Function approach.
@@ -339,7 +394,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
    * Force refresh the current user profile from the DB.
    * Useful after updating roles or other user data.
    */
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     console.log('[AuthContext] refreshUser START')
     
     if (!user) {
@@ -382,6 +437,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setUser(profile)
           clearPermissionCache()
           saveUserToCache(profile)
+          resetInactivityTimer() // Reset timer after successful refresh
           console.log('[AuthContext] refreshUser SUCCESS - profile updated:', profile)
         } catch (timeoutErr) {
           console.error('[AuthContext] refreshUser - TIMEOUT during refresh:', timeoutErr)
@@ -399,7 +455,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('[AuthContext] refreshUser ERROR:', err)
       setError('Failed to refresh user profile. Using existing data.')
     }
-  }
+  }, [user, resetInactivityTimer])
 
   /**
    * Sends a password reset email with a redirect URL.
