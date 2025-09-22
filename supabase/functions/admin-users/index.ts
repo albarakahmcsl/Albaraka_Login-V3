@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-roles',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 }
 
@@ -61,60 +61,28 @@ function deriveAccessFields(permissions: Array<{ resource: string; action: strin
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const frontendBaseUrl = Deno.env.get('FRONTEND_BASE_URL') || 'http://localhost:5173'
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+    const userRolesHeader = req.headers.get('x-user-roles') // JSON array of role names from frontend
+
+    if (!authHeader || !userRolesHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization or user roles header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid authorization token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const userRoles: string[] = JSON.parse(userRolesHeader)
 
-    // Fetch user's roles and permissions
-    const { data: userRolesData, error: userRolesError } = await supabase
-      .from('user_roles')
-      .select('roles(id, name, role_permissions(permissions(resource, action)))')
-      .eq('user_id', user.id)
-
-    if (userRolesError) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch user roles' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const userRoles = userRolesData?.map((ur) => ur.roles).filter(Boolean) || []
-    const userPermissions = userRoles.flatMap((role) =>
-      role.role_permissions?.flatMap((rp) => rp.permissions) || []
-    )
-
-    // Define required permission for this resource
-    const requiredAccess = { resource: 'users', action: 'access' } // user-management page
-
-    const hasAccess = userPermissions.some(
-      (p) => p.resource === requiredAccess.resource && p.action === requiredAccess.action
-    )
-
-    if (!hasAccess) {
+    // Check access based on cached roles
+    if (!userRoles.includes('admin') && !userRoles.includes('user-management')) {
       return new Response(JSON.stringify({ error: 'Insufficient permissions' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -156,7 +124,12 @@ Deno.serve(async (req) => {
         `)
         .order('created_at', { ascending: false })
 
-      if (usersError) return new Response(JSON.stringify({ error: usersError.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (usersError) {
+        return new Response(JSON.stringify({ error: usersError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
       const users = usersData?.map((u) => {
         const roles = u.user_roles?.map((ur) => ur.roles).filter(Boolean) || []
