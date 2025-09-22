@@ -131,22 +131,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Capture user ID before clearing session
       const currentUserId = authSession?.user?.id;
       
+      // Immediately set user profile to null in cache
+      if (currentUserId) {
+        reactQueryClient.setQueryData(queryKeys.userProfile(currentUserId), null);
+      }
+      
       await supabase.auth.signOut();
       setAuthSession(null);
       setError(null);
       
       // Clear all cached user data
       if (currentUserId) {
-        reactQueryClient.removeQueries({
+        await reactQueryClient.removeQueries({
           queryKey: queryKeys.userProfile(currentUserId)
         });
       }
-      reactQueryClient.removeQueries({
+      await reactQueryClient.removeQueries({
         queryKey: queryKeys.currentUser()
       });
-      
-      // Clear all queries to ensure clean state
-      reactQueryClient.clear();
     } catch (err: any) {
       console.error('SignOut error:', err);
     } finally {
@@ -192,6 +194,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Capture user ID before clearing session
           const currentUserId = authSession?.user?.id;
           
+          // Immediately set user profile to null in cache
+          if (currentUserId) {
+            reactQueryClient.setQueryData(queryKeys.userProfile(currentUserId), null);
+          }
+          
           setAuthSession(null);
           setError(null);
           setAuthLoading(false);
@@ -205,9 +212,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           reactQueryClient.removeQueries({
             queryKey: queryKeys.currentUser()
           });
-          
-          // Clear all queries to ensure clean state
-          reactQueryClient.clear();
           return;
         }
 
