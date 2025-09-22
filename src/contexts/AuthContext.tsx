@@ -273,6 +273,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         inactivityTimerRef.current = null
       }
     }
+  }
+  )
 
   /**
    * Signs in a user with email + password using Supabase auth.
