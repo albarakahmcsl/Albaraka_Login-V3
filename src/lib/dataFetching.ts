@@ -42,12 +42,12 @@ export const userProfileApi = {
           created_at,
           updated_at,
           user_roles(
-            roles!inner(
+            roles(
               id, 
               name, 
               description,
               role_permissions(
-                permissions!inner(
+                permissions(
                   id,
                   resource,
                   action,
