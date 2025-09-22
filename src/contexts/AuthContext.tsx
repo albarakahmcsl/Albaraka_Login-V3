@@ -16,7 +16,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  changePassword: (newPassword: string, clearNeedsPasswordReset?: boolean) => Promise<void>;
+  changePassword: (newPassword: string) => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   error: string | null;
 }
@@ -54,15 +54,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id]);
 
   const changePassword = useCallback(
-    async (newPassword: string) => {
+    async (newPassword: string, clearNeedsPasswordReset: boolean = false) => {
       try {
-        await authApi.updatePassword(newPassword);
-
-        // After changing password, mark needs_password_reset = false
-        await userProfileApi.updateUser({
-          id: user!.id,
-          needs_password_reset: false,
-        });
+        await authApi.updatePassword(newPassword, clearNeedsPasswordReset);
 
         // Refresh the user profile
         await refreshUser();
@@ -71,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(err.message || 'Failed to change password');
       }
     },
-    [user, refreshUser]
+    [refreshUser]
   );
 
   const sendPasswordResetEmail = useCallback(async (email: string) => {
