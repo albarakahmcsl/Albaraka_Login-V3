@@ -15,7 +15,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: (userId?: string) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   error: string | null;
@@ -36,36 +36,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshUser = useCallback(async () => {
-    if (!user?.id) return;
-
+  const refreshUser = useCallback(async (userId?: string) => {
+    if (!userId) return;
+    setLoading(true);
     try {
-      const profile = await userProfileApi.fetchUserProfile(user.id);
-      if (profile) {
-        setUser(profile);
-      } else {
-        await signOut();
-        setError('User profile not found. Please contact an administrator.');
+      const profile = await userProfileApi.fetchUserProfile(userId);
+      if (!profile) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setError('User profile not found.');
+        return;
+      }
+      if (!profile.is_active) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setError('Your account is inactive.');
+        return;
+      }
+      setUser(profile);
+      setError(null);
+
+      // Redirect to change-password page if needed
+      if (profile.needs_password_reset && window.location.pathname !== '/change-password') {
+        window.location.href = '/change-password';
       }
     } catch (err: any) {
       console.error('Error refreshing user profile:', err);
       setError('Failed to refresh user profile');
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-  }, [user?.id]);
+  }, []);
 
   const changePassword = useCallback(
-    async (newPassword: string, clearNeedsPasswordReset: boolean = false) => {
+    async (newPassword: string) => {
+      if (!user?.id) return;
       try {
-        await authApi.updatePassword(newPassword, clearNeedsPasswordReset);
-
-        // Refresh the user profile
-        await refreshUser();
+        await authApi.updatePassword(newPassword, true); // clear needs_password_reset on server
+        await refreshUser(user.id);
       } catch (err: any) {
         console.error('Error changing password:', err);
         throw new Error(err.message || 'Failed to change password');
       }
     },
-    [refreshUser]
+    [refreshUser, user?.id]
   );
 
   const sendPasswordResetEmail = useCallback(async (email: string) => {
@@ -83,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
     setLoading(true);
-
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -94,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
         return;
       }
-      // onAuthStateChange listener will handle the rest
+      // onAuthStateChange listener will handle fetching profile
     } catch (err: any) {
       console.error('SignIn error:', err);
       setError(err.message || 'Login failed');
@@ -117,6 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const init = async () => {
+      setLoading(true);
       try {
         const {
           data: { session },
@@ -127,36 +142,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await supabase.auth.signOut();
           setUser(null);
           setError('Session error. Please try logging in again.');
-          setLoading(false);
           return;
         }
 
         if (!session?.user) {
           setUser(null);
-          setLoading(false);
           return;
         }
 
-        const profile = await userProfileApi.fetchUserProfile(session.user.id);
-
-        if (!profile) {
-          await supabase.auth.signOut();
-          setUser(null);
-          setError('User profile not found. Please contact an administrator.');
-          setLoading(false);
-          return;
-        }
-
-        if (!profile.is_active) {
-          await supabase.auth.signOut();
-          setUser(null);
-          setError('Your account is inactive. Please contact an administrator.');
-          setLoading(false);
-          return;
-        }
-
-        setUser(profile);
-        setError(null);
+        await refreshUser(session.user.id);
       } catch (err: any) {
         console.error('Auth initialization error:', err);
         setUser(null);
@@ -168,7 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_OUT' || !session?.user) {
+        if (!session?.user || event === 'SIGNED_OUT') {
           setUser(null);
           setError(null);
           setLoading(false);
@@ -176,25 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          const profile = await userProfileApi.fetchUserProfile(session.user.id);
-          if (!profile) {
-            await supabase.auth.signOut();
-            setUser(null);
-            setError('User profile not found.');
-            setLoading(false);
-            return;
-          }
-
-          if (!profile.is_active) {
-            await supabase.auth.signOut();
-            setUser(null);
-            setError('Your account is inactive.');
-            setLoading(false);
-            return;
-          }
-
-          setUser(profile);
-          setError(null);
+          await refreshUser(session.user.id);
         }
       }
     );
@@ -204,7 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshUser]);
 
   return (
     <AuthContext.Provider
