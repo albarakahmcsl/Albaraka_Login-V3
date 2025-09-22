@@ -19,14 +19,15 @@ interface AuthContextType {
   changePassword: (newPassword: string, clearNeedsPasswordReset?: boolean) => Promise<void>
   sendPasswordResetEmail: (email: string) => Promise<void>
   error: string | null
-  setUser: React.Dispatch<React.SetStateAction<User | null>>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
-  if (!context) throw new Error('useAuth must be used within an AuthProvider')
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
   return context
 }
 
@@ -39,8 +40,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user?.id) return
     try {
       const profile = await userProfileApi.fetchUserProfile(user.id)
-      if (profile) setUser(profile)
-      else {
+      if (profile) {
+        setUser(profile)
+      } else {
         await signOut()
         setError('User profile not found. Please contact an administrator.')
       }
@@ -51,23 +53,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id])
 
   const changePassword = useCallback(
-    async (newPassword: string, clearNeedsPasswordReset = false) => {
-      if (!user) throw new Error('User not authenticated')
+    async (newPassword: string, clearNeedsPasswordReset: boolean = false) => {
       try {
         await authApi.updatePassword(newPassword, clearNeedsPasswordReset)
 
-        // Immediately update local user if password reset is cleared
-        if (clearNeedsPasswordReset) {
-          setUser(prev => prev ? { ...prev, needs_password_reset: false } : prev)
-        } else {
-          await refreshUser()
-        }
+        // Immediately update local user state to clear needs_password_reset
+        setUser((prev) =>
+          prev ? { ...prev, needs_password_reset: !clearNeedsPasswordReset } : prev
+        )
+
+        // Refresh the user profile to pick up any other updates
+        await refreshUser()
       } catch (err: any) {
         console.error('Error changing password:', err)
         throw new Error(err.message || 'Failed to change password')
       }
     },
-    [user, refreshUser]
+    [refreshUser]
   )
 
   const sendPasswordResetEmail = useCallback(async (email: string) => {
@@ -85,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null)
     setLoading(true)
+
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -95,6 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false)
         return
       }
+      // onAuthStateChange listener handles setting user
     } catch (err: any) {
       console.error('SignIn error:', err)
       setError(err.message || 'Login failed')
@@ -123,7 +127,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           error: sessionError,
         } = await supabase.auth.getSession()
 
-        if (sessionError || !session?.user) {
+        if (sessionError) {
+          await supabase.auth.signOut()
+          setUser(null)
+          setError('Session error. Please try logging in again.')
+          setLoading(false)
+          return
+        }
+
+        if (!session?.user) {
           setUser(null)
           setLoading(false)
           return
@@ -133,14 +145,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!profile) {
           await supabase.auth.signOut()
           setUser(null)
-          setError('User profile not found.')
-        } else if (!profile.is_active) {
+          setError('User profile not found. Please contact an administrator.')
+          setLoading(false)
+          return
+        }
+
+        if (!profile.is_active) {
           await supabase.auth.signOut()
           setUser(null)
-          setError('Your account is inactive.')
-        } else {
-          setUser(profile)
+          setError('Your account is inactive. Please contact an administrator.')
+          setLoading(false)
+          return
         }
+
+        setUser(profile)
+        setError(null)
       } catch (err: any) {
         console.error('Auth initialization error:', err)
         setUser(null)
@@ -161,20 +180,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           const profile = await userProfileApi.fetchUserProfile(session.user.id)
-          if (!profile || !profile.is_active) {
+          if (!profile) {
             await supabase.auth.signOut()
             setUser(null)
-            setError('User not found or inactive.')
+            setError('User profile not found.')
             setLoading(false)
             return
           }
+
+          if (!profile.is_active) {
+            await supabase.auth.signOut()
+            setUser(null)
+            setError('Your account is inactive.')
+            setLoading(false)
+            return
+          }
+
           setUser(profile)
+          setError(null)
         }
       }
     )
 
     init()
-    return () => subscription.unsubscribe()
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   return (
@@ -188,7 +220,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         changePassword,
         sendPasswordResetEmail,
         error,
-        setUser,
       }}
     >
       {children}
