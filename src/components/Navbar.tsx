@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LogOut, User, Shield } from 'lucide-react'
 
 export function Navbar() {
+  const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -11,6 +12,7 @@ export function Navbar() {
     setIsSigningOut(true)
     try {
       await signOut()
+      navigate('/login', { replace: true })
     } catch (error) {
       console.error('Sign out error:', error)
     } finally {
