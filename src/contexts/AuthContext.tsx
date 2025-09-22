@@ -11,6 +11,7 @@ const INACTIVITY_TIMEOUT = 15 * 60 * 1000
 const saveUserToCache = (user: any) => {
   try {
     localStorage.setItem(USER_PROFILE_CACHE_KEY, JSON.stringify(user))
+    console.log('[AuthContext] Saved user to cache:', user)
   } catch (error) {
     console.error('[AuthContext] Failed to save user to cache:', error)
   }
@@ -21,7 +22,10 @@ const getUserFromCache = (): any | null => {
     const cached = localStorage.getItem(USER_PROFILE_CACHE_KEY)
     if (cached) {
       const user = JSON.parse(cached)
-      if (user && user.is_active) return user
+      if (user && user.is_active) {
+        console.log('[AuthContext] Loaded user from cache:', user)
+        return user
+      }
     }
   } catch (error) {
     console.error('[AuthContext] Failed to load user from cache:', error)
@@ -32,6 +36,7 @@ const getUserFromCache = (): any | null => {
 const clearUserFromCache = () => {
   try {
     localStorage.removeItem(USER_PROFILE_CACHE_KEY)
+    console.log('[AuthContext] Cleared user from cache')
   } catch (error) {
     console.error('[AuthContext] Failed to clear user from cache:', error)
   }
@@ -61,20 +66,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const resetInactivityTimer = useCallback(() => {
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current)
-      inactivityTimerRef.current = null
-    }
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
     if (user) {
+      console.log('[AuthContext] Resetting inactivity timer for user:', user.id)
       inactivityTimerRef.current = setTimeout(() => {
+        console.log('[AuthContext] Inactivity timeout - logging out user:', user.id)
         signOut()
       }, INACTIVITY_TIMEOUT)
     }
   }, [user])
 
   const fetchUserProfile = async (userId: string) => {
+    console.log('[AuthContext] fetchUserProfile START:', userId)
     try {
       const profile = await userProfileApi.fetchUserProfile(userId)
+      console.log('[AuthContext] fetchUserProfile SUCCESS:', profile)
       return profile
     } catch (err) {
       console.error('[AuthContext] fetchUserProfile ERROR:', err)
@@ -82,43 +88,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }
 
-  const refreshUser = useCallback(async () => {
-    if (!user) return
-    try {
-      const { data: { user: sessionUser }, error } = await supabase.auth.getUser()
-      if (error || !sessionUser) {
-        setUser(null)
-        clearUserFromCache()
-        return
-      }
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.userProfile(sessionUser.id) })
-      const profile = await queryClient.fetchQuery({
-        queryKey: queryKeys.userProfile(sessionUser.id),
-        queryFn: () => fetchUserProfile(sessionUser.id),
-        staleTime: Infinity,
-        gcTime: Infinity,
-      })
-
-      if (!profile?.is_active) {
-        setUser(null)
-        queryClient.removeQueries({ queryKey: queryKeys.userProfile(sessionUser.id) })
-        await supabase.auth.signOut()
-        return
-      }
-
-      setUser(profile)
-      saveUserToCache(profile)
-      clearPermissionCache()
-      resetInactivityTimer()
-    } catch (err) {
-      console.error('[AuthContext] refreshUser ERROR:', err)
-      setError('Failed to refresh user profile.')
-    }
-  }, [user, resetInactivityTimer])
-
   useEffect(() => {
+    console.log('[AuthContext] Initializing AuthProvider...')
     const init = async () => {
+      console.log('[AuthContext] Checking localStorage for cached user...')
       const cachedUser = getUserFromCache()
       if (cachedUser) {
         setUser(cachedUser)
@@ -127,55 +100,89 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       try {
+        console.log('[AuthContext] Fetching Supabase session...')
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        if (sessionError || !session?.user) {
+        if (sessionError) console.error('[AuthContext] getSession ERROR:', sessionError)
+
+        if (session?.user) {
+          console.log('[AuthContext] Session exists:', session.user)
+        } else {
+          console.log('[AuthContext] No active session found')
           setUser(null)
           clearUserFromCache()
-          await supabase.auth.signOut()
         }
       } catch (err) {
-        setUser(null)
-        clearUserFromCache()
-        await supabase.auth.signOut()
+        console.error('[AuthContext] init ERROR:', err)
       } finally {
         setLoading(false)
+        console.log('[AuthContext] AuthProvider init DONE')
       }
     }
 
     init()
 
     const { data: subscription } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null)
-        clearUserFromCache()
-      }
-      if (event === 'SIGNED_IN' && session?.user) {
-        await refreshUser()
+      console.log('[AuthContext] onAuthStateChange:', event, 'session:', !!session)
+      try {
+        if (session?.user) {
+          console.log('[AuthContext] Auth state change - fetching profile for user:', session.user.id)
+          const profile = await withTimeout(
+            queryClient.fetchQuery({
+              queryKey: queryKeys.userProfile(session.user.id),
+              queryFn: () => fetchUserProfile(session.user.id),
+              staleTime: Infinity,
+              gcTime: Infinity
+            }),
+            5000,
+            'Profile fetch timed out'
+          )
+          if (!profile) {
+            console.warn('[AuthContext] Profile not found, signing out')
+            await signOut()
+            setError('User profile not found')
+            return
+          }
+          if (!profile.is_active) {
+            console.warn('[AuthContext] User inactive, signing out')
+            await signOut()
+            setError('Account inactive')
+            return
+          }
+          console.log('[AuthContext] Setting user state:', profile)
+          setUser(profile)
+          saveUserToCache(profile)
+          clearPermissionCache()
+          resetInactivityTimer()
+        } else {
+          console.log('[AuthContext] No session, clearing user')
+          setUser(null)
+          clearUserFromCache()
+        }
+      } catch (err) {
+        console.error('[AuthContext] onAuthStateChange ERROR:', err)
       }
     })
 
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
-    const handleActivity = () => resetInactivityTimer()
-    activityEvents.forEach(event => document.addEventListener(event, handleActivity, true))
-
     return () => {
       subscription.subscription.unsubscribe()
-      activityEvents.forEach(event => document.removeEventListener(event, handleActivity, true))
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current)
-        inactivityTimerRef.current = null
-      }
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
     }
-  }, []) // ✅ run once on mount, no infinite loop
+  }, [resetInactivityTimer])
 
   const signIn = useCallback(async (email: string, password: string) => {
+    console.log('[AuthContext] signIn START:', email)
     setLoading(true)
     setError(null)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        console.error('[AuthContext] signIn ERROR:', error)
+        throw error
+      }
+      console.log('[AuthContext] signIn SUCCESS:', data)
     } catch (err: any) {
       setError(err.message)
+      console.error('[AuthContext] signIn CATCH:', err)
       throw err
     } finally {
       setLoading(false)
@@ -183,59 +190,65 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
 
   const signOut = useCallback(async () => {
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current)
-      inactivityTimerRef.current = null
-    }
-    if (user?.id) queryClient.removeQueries({ queryKey: queryKeys.userProfile(user.id) })
-    clearUserFromCache()
+    console.log('[AuthContext] signOut START')
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
     setUser(null)
-    setError(null)
+    clearUserFromCache()
     try {
       await supabase.auth.signOut()
-    } catch {}
-  }, [user])
+      console.log('[AuthContext] signOut SUCCESS')
+    } catch (err) {
+      console.error('[AuthContext] signOut ERROR:', err)
+    }
+  }, [])
+
+  const refreshUser = useCallback(async () => {
+    console.log('[AuthContext] refreshUser START')
+    if (!user) return
+    try {
+      const { data: { user: sessionUser } } = await supabase.auth.getUser()
+      if (sessionUser) {
+        console.log('[AuthContext] refreshUser - fetching profile for', sessionUser.id)
+        const profile = await fetchUserProfile(sessionUser.id)
+        setUser(profile)
+        saveUserToCache(profile)
+        clearPermissionCache()
+        resetInactivityTimer()
+      }
+    } catch (err) {
+      console.error('[AuthContext] refreshUser ERROR:', err)
+    }
+  }, [user, resetInactivityTimer])
 
   const changePassword = async (newPassword: string, clearNeedsPasswordReset: boolean = false) => {
-    setLoading(true)
-    setError(null)
+    console.log('[AuthContext] changePassword START')
     try {
-      await authApi.updatePassword(newPassword, clearNeedsPasswordReset)
+      const result = await authApi.updatePassword(newPassword, clearNeedsPasswordReset)
+      console.log('[AuthContext] changePassword SUCCESS:', result)
       await refreshUser()
-    } catch (err: any) {
-      setError(err.message || 'Failed to change password')
+    } catch (err) {
+      console.error('[AuthContext] changePassword ERROR:', err)
       throw err
-    } finally {
-      setLoading(false)
     }
   }
 
   const sendPasswordResetEmail = async (email: string) => {
-    setLoading(true)
-    setError(null)
+    console.log('[AuthContext] sendPasswordResetEmail START:', email)
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       })
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message)
+      console.log('[AuthContext] sendPasswordResetEmail SUCCESS')
+    } catch (err) {
+      console.error('[AuthContext] sendPasswordResetEmail ERROR:', err)
       throw err
-    } finally {
-      setLoading(false)
     }
   }
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      error,
-      signIn,
-      signOut,
-      refreshUser,
-      changePassword,
-      sendPasswordResetEmail
+    <AuthContext.Provider value={{ 
+      user, loading, error, signIn, signOut, refreshUser, changePassword, sendPasswordResetEmail 
     }}>
       {children}
     </AuthContext.Provider>
