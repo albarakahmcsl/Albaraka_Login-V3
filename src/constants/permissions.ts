@@ -306,7 +306,19 @@ export const isValidResource = (resourceName: string): boolean => {
 
 export const isValidAction = (resourceName: string, actionName: string): boolean => {
   const resource = PERMISSION_RESOURCES.find(r => r.name === resourceName)
-  return resource ? resource.actions.some(a => a.name === actionName) : false
+  if (!resource) return false
+  
+  // Check if it's a specific action for this resource
+  const hasSpecificAction = resource.actions.some(a => a.name === actionName)
+  if (hasSpecificAction) return true
+  
+  // For UI-specific resources, only allow their specific actions
+  if (UI_SPECIFIC_RESOURCES.includes(resourceName)) {
+    return false
+  }
+  
+  // For all other resources, also check universal CRUD actions
+  return UNIVERSAL_CRUD_ACTIONS.some(a => a.name === actionName)
 }
 
 export const isValidPermission = (resourceName: string, actionName: string): boolean => {
