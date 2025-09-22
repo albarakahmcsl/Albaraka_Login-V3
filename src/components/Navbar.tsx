@@ -12,7 +12,7 @@ export function Navbar() {
     setIsSigningOut(true)
     try {
       await signOut()
-      navigate('/login', { replace: true })
+      window.location.reload()
     } catch (error) {
       console.error('Sign out error:', error)
     } finally {
