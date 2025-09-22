@@ -16,7 +16,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  changePassword: (newPassword: string) => Promise<void>;
+  changePassword: (newPassword: string, clearNeedsPasswordReset?: boolean) => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   error: string | null;
 }
