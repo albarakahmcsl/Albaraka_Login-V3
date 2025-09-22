@@ -660,6 +660,20 @@ function EditAccountTypeModal({
               <div className="flex items-center">
                 <input
                   type="checkbox"
+                  id="edit_is_dividend_eligible"
+                  checked={formData.is_dividend_eligible}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_dividend_eligible: e.target.checked }))}
+                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <label htmlFor="edit_is_dividend_eligible" className="ml-2 text-sm text-gray-700">
+                  <span className="font-medium">Eligible for Dividend</span>
+                  <span className="text-gray-500 block">Account holders can receive dividend payments</span>
+                </label>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
                   id="edit_is_member_account"
                   checked={formData.is_member_account}
                   onChange={(e) => setFormData(prev => ({ ...prev, is_member_account: e.target.checked }))}
