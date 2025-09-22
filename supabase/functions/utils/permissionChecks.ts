@@ -12,18 +12,12 @@ export async function hasRequiredPermission(
   action: string
 ): Promise<boolean> {
   try {
-    // Fetch user's roles and permissions in a single query
+    // Fetch user's roles
     const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select(`
         roles(
-          name,
-          role_permissions(
-            permissions(
-              resource,
-              action
-            )
-          )
+          name
         )
       `)
       .eq('user_id', userId)
@@ -38,29 +32,15 @@ export async function hasRequiredPermission(
       return false
     }
 
-    // Check if user has admin or director role (these have all permissions)
-    const hasAdminRole = userRoles.some(ur => 
-      ur.roles?.name === 'admin' || ur.roles?.name === 'director'
-    )
-
-    if (hasAdminRole) {
-      console.log('User has admin/director role - access granted')
+    // If user has any role assigned, grant full access
+    const hasAnyRole = userRoles.some(ur => ur.roles?.name)
+    
+    if (hasAnyRole) {
+      console.log('User has role assigned - access granted')
       return true
     }
 
-    // Check for specific permission
-    const hasSpecificPermission = userRoles.some(ur =>
-      ur.roles?.role_permissions?.some(rp =>
-        rp.permissions?.resource === resource && rp.permissions?.action === action
-      )
-    )
-
-    if (hasSpecificPermission) {
-      console.log(`User has specific permission: ${resource}.${action}`)
-      return true
-    }
-
-    console.log(`User lacks required permission: ${resource}.${action}`)
+    console.log('User has no valid roles - access denied')
     return false
 
   } catch (error) {
