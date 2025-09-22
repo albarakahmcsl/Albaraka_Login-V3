@@ -23,7 +23,7 @@ export interface AccountType {
   processing_fee: number;
   is_member_account: boolean;
   can_take_loan: boolean;
-  dividend_rate: number;
+  is_dividend_eligible: boolean;
   is_active: boolean;
   documents_required: string[];
   created_at: string;
@@ -42,7 +42,7 @@ export interface CreateAccountTypeData {
   processing_fee?: number;
   is_member_account?: boolean;
   can_take_loan?: boolean;
-  dividend_rate?: number;
+  is_dividend_eligible?: boolean;
   is_active?: boolean;
   documents_required?: string[];
 }
@@ -54,7 +54,7 @@ export interface UpdateAccountTypeData {
   processing_fee?: number;
   is_member_account?: boolean;
   can_take_loan?: boolean;
-  dividend_rate?: number;
+  is_dividend_eligible?: boolean;
   is_active?: boolean;
   documents_required?: string[];
 }
