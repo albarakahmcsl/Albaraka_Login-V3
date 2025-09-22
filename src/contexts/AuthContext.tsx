@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               staleTime: Infinity, // Data never becomes stale automatically
               gcTime: Infinity, // Keep in cache indefinitely
             }),
-            8000,
+            2000,
             'Profile fetch timed out during auth state change'
           )
           
@@ -248,7 +248,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log('[AuthContext] signIn - Auth successful, fetching profile...')
         const profile = await withTimeout(
           fetchUserProfile(data.user.id),
-          8000,
+          2000,
           'Profile fetch timed out during sign in'
         )
 
