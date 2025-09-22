@@ -538,7 +538,7 @@ function EditAccountTypeModal({
     processing_fee: accountType.processing_fee,
     is_member_account: accountType.is_member_account,
     can_take_loan: accountType.can_take_loan,
-    dividend_rate: accountType.dividend_rate,
+    is_dividend_eligible: accountType.is_dividend_eligible,
     is_active: accountType.is_active,
     documents_required_text: (accountType.documents_required || []).join(', ')
   })
@@ -626,19 +626,6 @@ function EditAccountTypeModal({
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Dividend Rate (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={formData.dividend_rate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dividend_rate: parseFloat(e.target.value) || 0 }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              </div>
             </div>
 
             <div>
@@ -657,6 +644,20 @@ function EditAccountTypeModal({
             </div>
 
             <div className="space-y-3">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="edit_is_dividend_eligible"
+                  checked={formData.is_dividend_eligible}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_dividend_eligible: e.target.checked }))}
+                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <label htmlFor="edit_is_dividend_eligible" className="ml-2 text-sm text-gray-700">
+                  <span className="font-medium">Eligible for Dividend</span>
+                  <span className="text-gray-500 block">Account holders can receive dividend payments</span>
+                </label>
+              </div>
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
