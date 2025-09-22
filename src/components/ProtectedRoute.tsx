@@ -64,14 +64,7 @@ export function ProtectedRoute({
 
   if (requiredPermission && !hasPermission(user, requiredPermission.resource, requiredPermission.action)) {
     console.log('[ProtectedRoute] Required permission not met:', requiredPermission)
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600">You don't have permission to access this resource.</p>
-        </div>
-      </div>
-    )
+    return <Navigate to="/dashboard" replace />
   }
 
   console.log('[ProtectedRoute] All checks passed, rendering children')
