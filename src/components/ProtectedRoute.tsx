@@ -10,19 +10,19 @@ interface ProtectedRouteProps {
   redirectTo?: string
 }
 
-export function ProtectedRoute({ 
-  children, 
-  requireAdmin = false, 
+export function ProtectedRoute({
+  children,
+  requireAdmin = false,
   requiredPermission,
-  redirectTo = '/login'
+  redirectTo = '/login',
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth()
   const location = useLocation()
 
   console.log('[ProtectedRoute] Render - pathname:', location.pathname, 'user:', !!user, 'loading:', loading)
 
-  // Only show loading spinner if we're actually loading (no cached data available)
-  if (loading && !user) {
+  // Show spinner while auth state is loading
+  if (loading) {
     console.log('[ProtectedRoute] Showing loading spinner')
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -34,41 +34,49 @@ export function ProtectedRoute({
     )
   }
 
+  // Redirect to login if no user
   if (!user) {
     console.log('[ProtectedRoute] No user, redirecting to login')
     return <Navigate to={redirectTo} state={{ from: location }} replace />
   }
 
-  // Check if user needs to change their password
+  // Redirect to force password change if needed
   if (user.needs_password_reset && location.pathname !== '/force-password-change') {
     console.log('[ProtectedRoute] User needs password reset, redirecting')
     return <Navigate to="/force-password-change" replace />
   }
 
+  // Show inactive account message
   if (!user.is_active) {
     console.log('[ProtectedRoute] User account is inactive')
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Account Inactive</h2>
-          <p className="text-gray-600">Your account has been deactivated. Please contact an administrator.</p>
+          <p className="text-gray-600">
+            Your account has been deactivated. Please contact an administrator.
+          </p>
         </div>
       </div>
     )
   }
 
+  // Admin check
   if (requireAdmin && !isAdmin(user)) {
     console.log('[ProtectedRoute] Admin required but user is not admin, redirecting to dashboard')
     return <Navigate to="/dashboard" replace />
   }
 
+  // Permission check
   if (requiredPermission && !hasPermission(user, requiredPermission.resource, requiredPermission.action)) {
     console.log('[ProtectedRoute] Required permission not met:', requiredPermission)
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600">You don't have permission to access this resource.</p>
+          <p className="text-gray-600">
+            You don't have permission to access this resource.
+          </p>
         </div>
       </div>
     )
