@@ -21,66 +21,58 @@ function getCacheKey(userId: string, resource: string, action: string): string {
 
 export function hasMenuAccess(user: User | null, menuId: string): boolean {
   if (!user || !user.is_active) return false
-  return user.menu_access.includes(menuId)
+  return true // all logged-in users have access
 }
 
 export function hasSubMenuAccess(user: User | null, menuId: string, subMenuId: string): boolean {
   if (!user || !user.is_active) return false
-  return user.sub_menu_access[menuId]?.includes(subMenuId) || false
+  return true // all logged-in users have access
 }
 
 export function hasComponentAccess(user: User | null, componentId: string): boolean {
   if (!user || !user.is_active) return false
-  return user.component_access.includes(componentId)
+  return true // all logged-in users have access
 }
 
 export function hasPermission(user: User | null, resource: string, action: string): boolean {
   if (!user || !user.is_active) return false
-  
+
   // Clean expired cache entries
   cleanPermissionCache()
-  
-  // Check cache first for performance
+
+  // Check cache first
   const cacheKey = getCacheKey(user.id, resource, action)
   if (permissionCache.has(cacheKey)) {
     return permissionCache.get(cacheKey)!
   }
-  
-  let hasAccess = false
-  
-  // Check if user has admin or director role - these roles have all permissions
-  if (user.roles?.some(role => role.name === 'admin' || role.name === 'director')) {
-    hasAccess = true
-  } else {
-    // Check if user has the specific permission through their roles
-    hasAccess = user.permissions?.some(permission => 
-      permission.resource === resource && permission.action === action
-    ) || false
-  }
-  
+
+  // All logged-in users have permission
+  const hasAccess = true
+
   // Cache the result
   permissionCache.set(cacheKey, hasAccess)
-  
+
   return hasAccess
 }
 
 export function isAdmin(user: User | null): boolean {
   if (!user || !user.is_active) return false
-  
+
   // Clean expired cache entries
   cleanPermissionCache()
-  
+
   // Check cache first
   const cacheKey = getCacheKey(user.id, 'admin', 'check')
   if (permissionCache.has(cacheKey)) {
     return permissionCache.get(cacheKey)!
   }
-  
-  const isUserAdmin = user.roles?.some(role => role.name === 'admin' || role.name === 'director') || false
-  
+
+  // All logged-in users are treated as admin
+  const isUserAdmin = true
+
   // Cache the result
   permissionCache.set(cacheKey, isUserAdmin)
-  
+
   return isUserAdmin
 }
 
