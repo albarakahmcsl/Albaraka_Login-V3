@@ -247,19 +247,17 @@ function CreateUserModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.role_ids.length === 0) {
-      alert('Please select at least one role')
+    if (!formData.role_ids[0]) {
+      alert('Please select a role')
       return
     }
     onSubmit(formData)
   }
 
-  const handleRoleChange = (roleId: string, checked: boolean) => {
+  const handleRoleChange = (roleId: string) => {
     setFormData(prev => ({
       ...prev,
-      role_ids: checked 
-        ? [...new Set([...prev.role_ids, roleId])]
-        : prev.role_ids.filter(id => id !== roleId)
+      role_ids: roleId ? [roleId] : []
     }))
   }
 
@@ -303,20 +301,20 @@ function CreateUserModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <label className="block text-sm font-medium text-gray-700">Role</label>
+              <select
+                required
+                value={formData.role_ids[0] || ''}
+                onChange={(e) => handleRoleChange(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="">Select a role</option>
                 {roles.map((role) => (
-                  <label key={role.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.role_ids.includes(role.id)}
-                      onChange={(e) => handleRoleChange(role.id, e.target.checked)}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{role.name}</span>
-                  </label>
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -365,19 +363,17 @@ function EditUserModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.role_ids.length === 0) {
-      alert('Please select at least one role')
+    if (!formData.role_ids[0]) {
+      alert('Please select a role')
       return
     }
     onSubmit(formData)
   }
 
-  const handleRoleChange = (roleId: string, checked: boolean) => {
+  const handleRoleChange = (roleId: string) => {
     setFormData(prev => ({
       ...prev,
-      role_ids: checked 
-        ? [...new Set([...prev.role_ids, roleId])]
-        : prev.role_ids.filter(id => id !== roleId)
+      role_ids: roleId ? [roleId] : []
     }))
   }
 
@@ -409,20 +405,20 @@ function EditUserModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <label className="block text-sm font-medium text-gray-700">Role</label>
+              <select
+                required
+                value={formData.role_ids[0] || ''}
+                onChange={(e) => handleRoleChange(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="">Select a role</option>
                 {roles.map((role) => (
-                  <label key={role.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.role_ids.includes(role.id)}
-                      onChange={(e) => handleRoleChange(role.id, e.target.checked)}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{role.name}</span>
-                  </label>
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
             <div className="flex items-center">
