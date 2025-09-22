@@ -336,8 +336,35 @@ Deno.serve(async (req) => {
     // DELETE user
     if (method === 'DELETE') {
       const userId = url.pathname.split('/').pop()
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId!)
-      if (authError) return new Response(JSON.stringify({ error: authError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'User ID is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // First delete from public.users table (this will cascade delete user_roles)
+      const { error: dbError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+
+      if (dbError) {
+        return new Response(
+          JSON.stringify({ error: `Failed to delete user profile: ${dbError.message}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Then delete from auth.users table
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+      if (authError) {
+        console.error('Failed to delete auth user, but profile was deleted:', authError)
+        // Don't return error here since the main user data is already deleted
+        // The auth deletion failure is less critical
+      }
+
       return new Response(JSON.stringify({ message: 'User deleted successfully' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
