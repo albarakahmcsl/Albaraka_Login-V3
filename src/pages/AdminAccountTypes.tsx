@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign, Percent } from 'lucide-react'
-import { FileText, CheckCircle2, XCircle as XCircle2 } from 'lucide-react'i, bankAccountsApi, ApiError } from '../lib/dataFetching'
+import { FileText, CheckCircle2, XCircle as XCircle2 } from 'lucide-react'
+import { accountTypesApi, bankAccountsApi, ApiError } from '../lib/dataFetching'
 import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAccount } from '../types'
 
 export function AdminAccountTypes() {
