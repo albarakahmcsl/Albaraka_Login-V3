@@ -13,7 +13,7 @@ import type { User, Role, CreateUserData, UpdateUserData } from '../types/auth'
 export function AdminUsers() {
   const queryClient = useQueryClient()
   const loaderData = useLoaderData() as { users: User[]; roles: Role[] }
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -30,12 +30,14 @@ export function AdminUsers() {
     queryKey: queryKeys.adminUsers(),
     queryFn: adminUsersApi.getUsers,
     initialData: { users: loaderData.users },
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'users', 'view'),
   })
 
   const { data: roles } = useQuery({
     queryKey: queryKeys.adminRoles(),
     queryFn: adminRolesApi.getRoles,
     initialData: loaderData.roles,
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'roles', 'view'),
   })
 
   // Mutations for user operations

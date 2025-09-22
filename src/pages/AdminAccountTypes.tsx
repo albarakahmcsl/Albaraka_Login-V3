@@ -10,7 +10,7 @@ import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAcc
 
 export function AdminAccountTypes() {
   const queryClient = useQueryClient()
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -34,11 +34,13 @@ export function AdminAccountTypes() {
   const { data: accountTypesData, isLoading: accountTypesLoading } = useQuery({
     queryKey: queryKeys.accountTypes(),
     queryFn: accountTypesApi.getAccountTypes,
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'account_types', 'view'),
   })
 
   const { data: bankAccountsData } = useQuery({
     queryKey: queryKeys.bankAccounts(),
     queryFn: bankAccountsApi.getBankAccounts,
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'bank_accounts', 'view'),
   })
 
   // Mutations for account type operations

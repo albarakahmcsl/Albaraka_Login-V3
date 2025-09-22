@@ -16,7 +16,7 @@ import type { Permission, CreatePermissionData, UpdatePermissionData } from '../
 
 export function AdminPermissions() {
   const queryClient = useQueryClient()
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -29,6 +29,7 @@ export function AdminPermissions() {
   const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
     queryKey: queryKeys.adminPermissions(),
     queryFn: adminPermissionsApi.getPermissions,
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'permissions', 'view'),
   })
 
   // Mutations for permission operations

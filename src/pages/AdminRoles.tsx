@@ -9,7 +9,7 @@ import type { Role, Permission, CreateRoleData, UpdateRoleData } from '../types/
 
 export function AdminRoles() {
   const queryClient = useQueryClient()
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -22,11 +22,13 @@ export function AdminRoles() {
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: queryKeys.adminRoles(),
     queryFn: adminRolesApi.getRoles,
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'roles', 'view'),
   })
 
   const { data: permissions = [] } = useQuery({
     queryKey: queryKeys.adminPermissions(),
     queryFn: adminPermissionsApi.getPermissions,
+    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'permissions', 'view'),
   })
 
   // Mutations for role operations
