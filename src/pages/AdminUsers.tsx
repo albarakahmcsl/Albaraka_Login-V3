@@ -5,6 +5,7 @@ import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Shield } from 'lucide-react'
 import { adminUsersApi, adminRolesApi, ApiError } from '../lib/dataFetching'
 import { generateTemporaryPassword } from '../utils/validation'
+import { ConfirmationModal } from '../components/ConfirmationModal'
 import type { User, Role, CreateUserData, UpdateUserData } from '../types/auth'
 
 export function AdminUsers() {
@@ -17,6 +18,9 @@ export function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+  const [userToDeleteId, setUserToDeleteId] = useState<string | null>(null)
+  const [userToDeleteName, setUserToDeleteName] = useState<string>('')
 
   // Use React Query with initial data from loader
   const { data: usersData, isLoading: usersLoading } = useQuery({
@@ -62,10 +66,27 @@ export function AdminUsers() {
     mutationFn: adminUsersApi.deleteUser,
     onSuccess: () => {
       setSuccess('User deleted successfully')
+      // Optimistically update the UI by removing the deleted user from the cache
+      queryClient.setQueryData(queryKeys.adminUsers(), (oldData: { users: User[] } | undefined) => {
+        if (!oldData || !userToDeleteId) return oldData
+        return {
+          ...oldData,
+          users: oldData.users.filter(user => user.id !== userToDeleteId)
+        }
+      })
+      // Reset delete modal state
+      setShowDeleteConfirmModal(false)
+      setUserToDeleteId(null)
+      setUserToDeleteName('')
+      // Still invalidate to ensure data consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete user')
+      // Reset delete modal state on error
+      setShowDeleteConfirmModal(false)
+      setUserToDeleteId(null)
+      setUserToDeleteName('')
     },
   })
 
@@ -79,8 +100,17 @@ export function AdminUsers() {
   }
 
   const handleDeleteUser = (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
-    deleteUserMutation.mutate(userId)
+    const user = users.find(u => u.id === userId)
+    if (!user) return
+    
+    setUserToDeleteId(userId)
+    setUserToDeleteName(user.full_name || user.email)
+    setShowDeleteConfirmModal(true)
+  }
+
+  const confirmDeleteUser = () => {
+    if (!userToDeleteId) return
+    deleteUserMutation.mutate(userToDeleteId)
   }
 
   const users = usersData?.users || []
@@ -191,6 +221,7 @@ export function AdminUsers() {
                     <button
                       onClick={() => handleDeleteUser(user.id)}
                       className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      disabled={deleteUserMutation.isPending}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -221,6 +252,22 @@ export function AdminUsers() {
           onSubmit={handleUpdateUser}
         />
       )}
+      
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirmModal}
+        onClose={() => {
+          setShowDeleteConfirmModal(false)
+          setUserToDeleteId(null)
+          setUserToDeleteName('')
+        }}
+        onConfirm={confirmDeleteUser}
+        title="Delete User"
+        message={`Are you sure you want to delete "${userToDeleteName}"? This action cannot be undone and will permanently remove the user from the system.`}
+        confirmText="Delete User"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   )
 }
