@@ -1,4 +1,3 @@
-// AuthContext.tsx
 import React, {
   createContext,
   useContext,
@@ -8,20 +7,17 @@ import React, {
   useCallback,
 } from 'react'
 import { supabase } from '../lib/supabase'
-
-interface User {
-  id: string
-  email: string
-  full_name: string
-  is_active: boolean
-  needs_password_reset: boolean
-  roles?: { name: string }[]
-}
+import { User } from '../types/auth'
+import { userProfileApi, authApi } from '../lib/dataFetching'
 
 interface AuthContextType {
   user: User | null
+  loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  refreshUser: () => Promise<void>
+  changePassword: (newPassword: string) => Promise<void>
+  sendPasswordResetEmail: (email: string) => Promise<void>
   error: string | null
 }
 
@@ -37,99 +33,244 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   console.log('[AuthContext] Initializing AuthProvider...')
 
-  // Load cached user from localStorage
-  useEffect(() => {
-    console.log('[AuthContext] Checking localStorage for cached user...')
-    const cachedUser = localStorage.getItem('user')
-    if (cachedUser) {
-      try {
-        const parsedUser: User = JSON.parse(cachedUser)
-        setUser(parsedUser)
-        console.log('[AuthContext] Loaded user from cache:', parsedUser)
-      } catch (err) {
-        console.error('[AuthContext] Failed to parse cached user:', err)
-      }
+  const refreshUser = useCallback(async () => {
+    console.log('[AuthContext] Refreshing user profile...')
+    if (!user?.id) {
+      console.log('[AuthContext] No user ID available for refresh')
+      return
     }
-    setLoading(false)
+
+    try {
+      const profile = await userProfileApi.fetchUserProfile(user.id)
+      if (profile) {
+        setUser(profile)
+        console.log('[AuthContext] User profile refreshed:', profile)
+      } else {
+        console.log('[AuthContext] User profile not found during refresh')
+        await signOut()
+        setError('User profile not found. Please contact an administrator.')
+      }
+    } catch (err: any) {
+      console.error('[AuthContext] Error refreshing user profile:', err)
+      setError('Failed to refresh user profile')
+    }
+  }, [user?.id])
+
+  const changePassword = useCallback(async (newPassword: string) => {
+    console.log('[AuthContext] Changing password...')
+    try {
+      await authApi.updatePassword(newPassword)
+      console.log('[AuthContext] Password changed successfully')
+      
+      // If user needs password reset, update their profile
+      if (user?.needs_password_reset) {
+        await refreshUser()
+      }
+    } catch (err: any) {
+      console.error('[AuthContext] Error changing password:', err)
+      throw new Error(err.message || 'Failed to change password')
+    }
+  }, [user?.needs_password_reset, refreshUser])
+
+  const sendPasswordResetEmail = useCallback(async (email: string) => {
+    console.log('[AuthContext] Sending password reset email to:', email)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      })
+      if (error) {
+        throw error
+      }
+      console.log('[AuthContext] Password reset email sent successfully')
+    } catch (err: any) {
+      console.error('[AuthContext] Error sending password reset email:', err)
+      throw new Error(err.message || 'Failed to send password reset email')
+    }
   }, [])
 
-  // Fetch Supabase session once
   useEffect(() => {
-    if (loading) return
-    const fetchSession = async () => {
-      console.log('[AuthContext] Fetching Supabase session...')
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) {
-        console.error('[AuthContext] Supabase session error:', sessionError)
-      } else if (session?.user) {
-        const supaUser: User = {
-          id: session.user.id,
-          email: session.user.email || '',
-          full_name: (session.user.user_metadata as any)?.full_name || '',
-          is_active: true,
-          needs_password_reset: false,
-          roles: (session.user.user_metadata as any)?.roles || [],
+    console.log('[AuthContext] Setting up auth state listener...')
+    
+    const init = async () => {
+      try {
+        console.log('[AuthContext] Getting initial session...')
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('[AuthContext] Session error:', sessionError)
+          await supabase.auth.signOut()
+          setUser(null)
+          setError('Session error. Please try logging in again.')
+          setLoading(false)
+          return
         }
-        setUser(prev => {
-          if (!prev || prev.id !== supaUser.id) {
-            console.log('[AuthContext] Setting user from Supabase session:', supaUser)
-            localStorage.setItem('user', JSON.stringify(supaUser))
-            return supaUser
+
+        if (!session?.user) {
+          console.log('[AuthContext] No session found')
+          setUser(null)
+          setLoading(false)
+          return
+        }
+
+        console.log('[AuthContext] Session found, fetching user profile...')
+        try {
+          const profile = await userProfileApi.fetchUserProfile(session.user.id)
+          
+          if (!profile) {
+            console.log('[AuthContext] User profile not found')
+            await supabase.auth.signOut()
+            setUser(null)
+            setError('User profile not found. Please contact an administrator.')
+            setLoading(false)
+            return
           }
-          return prev
-        })
-      } else {
+
+          if (!profile.is_active) {
+            console.log('[AuthContext] User account is inactive')
+            await supabase.auth.signOut()
+            setUser(null)
+            setError('Your account is inactive. Please contact an administrator.')
+            setLoading(false)
+            return
+          }
+
+          console.log('[AuthContext] User profile loaded successfully:', profile)
+          setUser(profile)
+          setError(null)
+        } catch (profileError: any) {
+          console.error('[AuthContext] Error fetching user profile:', profileError)
+          await supabase.auth.signOut()
+          setUser(null)
+          setError('Failed to load user profile. Please try logging in again.')
+        }
+      } catch (err: any) {
+        console.error('[AuthContext] Initialization error:', err)
         setUser(null)
-        localStorage.removeItem('user')
+        setError('Authentication initialization failed. Please refresh the page.')
+      } finally {
+        setLoading(false)
       }
     }
 
-    fetchSession()
-  }, [loading])
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', event, session?.user?.id)
+      
+      try {
+        if (event === 'SIGNED_OUT' || !session?.user) {
+          console.log('[AuthContext] User signed out or no session')
+          setUser(null)
+          setError(null)
+          setLoading(false)
+          return
+        }
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          console.log('[AuthContext] User signed in or token refreshed, fetching profile...')
+          
+          try {
+            const profile = await userProfileApi.fetchUserProfile(session.user.id)
+            
+            if (!profile) {
+              console.log('[AuthContext] User profile not found')
+              await supabase.auth.signOut()
+              setUser(null)
+              setError('User profile not found. Please contact an administrator.')
+              setLoading(false)
+              return
+            }
+
+            if (!profile.is_active) {
+              console.log('[AuthContext] User account is inactive')
+              await supabase.auth.signOut()
+              setUser(null)
+              setError('Your account is inactive. Please contact an administrator.')
+              setLoading(false)
+              return
+            }
+
+            console.log('[AuthContext] User profile loaded:', profile)
+            setUser(profile)
+            setError(null)
+          } catch (profileError: any) {
+            console.error('[AuthContext] Error fetching user profile:', profileError)
+            await supabase.auth.signOut()
+            setUser(null)
+            setError('Failed to load user profile. Please try logging in again.')
+          }
+        }
+      } catch (err: any) {
+        console.error('[AuthContext] onAuthStateChange ERROR:', err.message)
+        setError('Authentication error occurred. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    })
+
+    init()
+
+    return () => {
+      console.log('[AuthContext] Cleaning up auth listener...')
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
     console.log('[AuthContext] Attempting signIn for:', email)
     setError(null)
+    setLoading(true)
+    
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: signInError } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      })
+      
       if (signInError) {
         console.error('[AuthContext] signIn error:', signInError)
         setError(signInError.message)
+        setLoading(false)
         return
       }
-      if (data.session?.user) {
-        const supaUser: User = {
-          id: data.session.user.id,
-          email: data.session.user.email || '',
-          full_name: (data.session.user.user_metadata as any)?.full_name || '',
-          is_active: true,
-          needs_password_reset: false,
-          roles: (data.session.user.user_metadata as any)?.roles || [],
-        }
-        setUser(supaUser)
-        localStorage.setItem('user', JSON.stringify(supaUser))
-        console.log('[AuthContext] signIn successful:', supaUser)
-      }
+      
+      console.log('[AuthContext] signIn successful, waiting for auth state change...')
+      // The onAuthStateChange listener will handle the rest
     } catch (err: any) {
       console.error('[AuthContext] Unexpected signIn error:', err)
       setError(err.message || 'Login failed')
+      setLoading(false)
     }
   }, [])
 
   const signOut = useCallback(async () => {
     console.log('[AuthContext] Signing out...')
-    await supabase.auth.signOut()
-    setUser(null)
-    localStorage.removeItem('user')
+    setLoading(true)
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      setError(null)
+    } catch (err: any) {
+      console.error('[AuthContext] Error during signOut:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, error }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signIn, 
+      signOut, 
+      refreshUser,
+      changePassword,
+      sendPasswordResetEmail,
+      error 
+    }}>
       {children}
     </AuthContext.Provider>
   )
