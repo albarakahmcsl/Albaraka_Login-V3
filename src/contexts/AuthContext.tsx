@@ -9,6 +9,7 @@ import React, {
 import { supabase } from '../lib/supabase';
 import { User } from '../types/auth';
 import { userProfileApi, authApi } from '../lib/dataFetching';
+import { queryClient } from '../lib/queryClient';
 
 interface AuthContextType {
   user: User | null;
@@ -42,6 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const profile = await userProfileApi.fetchUserProfile(userId);
       if (profile) setUser(profile);
       else {
+        // Cache user profile with roles for auth headers
+        queryClient.setQueryData(['userProfile', userId], profile);
         await supabase.auth.signOut();
         setUser(null);
         setError('User profile not found.');
