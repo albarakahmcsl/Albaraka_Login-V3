@@ -113,6 +113,7 @@ export function AdminAccountTypes() {
   const canCreateAccountTypes = hasPermission(currentUser, 'account_types', 'create')
   const canUpdateAccountTypes = hasPermission(currentUser, 'account_types', 'update')
   const canDeleteAccountTypes = hasPermission(currentUser, 'account_types', 'delete')
+
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">

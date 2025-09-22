@@ -105,6 +105,7 @@ export function AdminBankAccounts() {
   const canCreateBankAccounts = hasPermission(currentUser, 'bank_accounts', 'create')
   const canUpdateBankAccounts = hasPermission(currentUser, 'bank_accounts', 'update')
   const canDeleteBankAccounts = hasPermission(currentUser, 'bank_accounts', 'delete')
+
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">

@@ -128,6 +128,7 @@ export function AdminUsers() {
   const canCreateUsers = hasPermission(currentUser, 'users', 'create')
   const canUpdateUsers = hasPermission(currentUser, 'users', 'update')
   const canDeleteUsers = hasPermission(currentUser, 'users', 'delete')
+
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">

@@ -39,31 +39,31 @@ const navigation: NavItem[] = [
     name: 'User Management',
     href: '/admin/users',
     icon: Users,
-    permission: { resource: 'users', action: 'manage' }
+    permission: { resource: 'users', action: 'view' }
   },
   {
     name: 'Role Management',
     href: '/admin/roles',
     icon: Shield,
-    permission: { resource: 'roles', action: 'manage' }
+    permission: { resource: 'roles', action: 'view' }
   },
   {
     name: 'Permission Management',
     href: '/admin/permissions',
     icon: Key,
-    permission: { resource: 'permissions', action: 'manage' }
+    permission: { resource: 'permissions', action: 'view' }
   },
   {
     name: 'Bank Accounts',
     href: '/admin/bank-accounts',
     icon: Banknote,
-    permission: { resource: 'bank_accounts', action: 'manage' }
+    permission: { resource: 'bank_accounts', action: 'view' }
   },
   {
     name: 'Account Types',
     href: '/admin/account-types',
     icon: Layers,
-    permission: { resource: 'account_types', action: 'manage' }
+    permission: { resource: 'account_types', action: 'view' }
   },
   {
     name: 'Reports',

@@ -95,6 +95,7 @@ export function AdminRoles() {
   const canCreateRoles = hasPermission(currentUser, 'roles', 'create')
   const canUpdateRoles = hasPermission(currentUser, 'roles', 'update')
   const canDeleteRoles = hasPermission(currentUser, 'roles', 'delete')
+
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">

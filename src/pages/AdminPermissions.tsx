@@ -107,6 +107,7 @@ export function AdminPermissions() {
   const canCreatePermissions = hasPermission(currentUser, 'permissions', 'create')
   const canUpdatePermissions = hasPermission(currentUser, 'permissions', 'update')
   const canDeletePermissions = hasPermission(currentUser, 'permissions', 'delete')
+
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
