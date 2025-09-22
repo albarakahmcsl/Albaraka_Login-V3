@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { authenticateAndCheckPermission } from './utils/permissionChecks.ts'
+import { authenticateAndCheckPermission } from '../utils/permissionChecks.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
