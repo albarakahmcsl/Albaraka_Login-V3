@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
-import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign, Percent } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign } from 'lucide-react'
 import { FileText, CheckCircle2, XCircle as XCircle2 } from 'lucide-react'
 import { accountTypesApi, bankAccountsApi, ApiError } from '../lib/dataFetching'
 import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAccount } from '../types'
@@ -227,8 +227,15 @@ export function AdminAccountTypes() {
                             <span className="font-medium">Processing Fee:</span> MUR {accountType.processing_fee}
                           </div>
                           <div className="flex items-center">
-                            <Percent className="h-4 w-4 text-gray-400 mr-1" />
-                            <span className="font-medium">Dividend Rate:</span> {accountType.dividend_rate}%
+                            {accountType.is_dividend_eligible ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
+                            ) : (
+                              <XCircle2 className="h-4 w-4 text-red-500 mr-1" />
+                            )}
+                            <span className="font-medium">Dividend Eligible:</span> 
+                            <span className={`ml-1 ${accountType.is_dividend_eligible ? 'text-green-600' : 'text-red-600'}`}>
+                              {accountType.is_dividend_eligible ? 'Yes' : 'No'}
+                            </span>
                           </div>
                           <div className="col-span-2">
                             <div className="flex items-start">
@@ -322,7 +329,7 @@ function CreateAccountTypeModal({
     processing_fee: 0,
     is_member_account: false,
     can_take_loan: false,
-    dividend_rate: 0,
+    is_dividend_eligible: false,
     is_active: true,
     documents_required_text: ''
   })
@@ -414,19 +421,6 @@ function CreateAccountTypeModal({
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Dividend Rate (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={formData.dividend_rate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dividend_rate: parseFloat(e.target.value) || 0 }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="0.00"
-                />
-              </div>
             </div>
 
             <div>
@@ -445,6 +439,20 @@ function CreateAccountTypeModal({
             </div>
 
             <div className="space-y-3">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_dividend_eligible"
+                  checked={formData.is_dividend_eligible}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_dividend_eligible: e.target.checked }))}
+                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <label htmlFor="is_dividend_eligible" className="ml-2 text-sm text-gray-700">
+                  <span className="font-medium">Eligible for Dividend</span>
+                  <span className="text-gray-500 block">Account holders can receive dividend payments</span>
+                </label>
+              </div>
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
