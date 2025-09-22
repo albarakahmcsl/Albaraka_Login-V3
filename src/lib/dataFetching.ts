@@ -58,7 +58,7 @@ export const userProfileApi = {
           )
         `)
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) {
         console.error('[dataFetching] fetchUserProfile ERROR:', error)
@@ -67,7 +67,7 @@ export const userProfileApi = {
       
       if (!data) {
         console.log('[dataFetching] fetchUserProfile - No profile found for user:', userId)
-        throw new Error('User profile not found')
+        return null
       }
       
       // Transform the data to match our User interface
