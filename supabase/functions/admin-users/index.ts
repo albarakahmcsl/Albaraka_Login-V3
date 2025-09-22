@@ -244,8 +244,8 @@ Deno.serve(async (req) => {
       }
 
       // Derive access fields from permissions
-      const allPermissions = rolePermissions?.map(rp => rp.permissions).filter(Boolean) || []
-      const accessFields = deriveAccessFields(allPermissions)
+      const permissionsForAccess = rolePermissions?.map(rp => rp.permissions).filter(Boolean) || []
+      const accessFields = deriveAccessFields(permissionsForAccess)
 
       // Update user with derived access fields
       const { error: updateAccessError } = await supabase
@@ -369,8 +369,8 @@ Deno.serve(async (req) => {
       }
 
       // Derive access fields from permissions
-      const allPermissions = rolePermissions?.map(rp => rp.permissions).filter(Boolean) || []
-      const accessFields = deriveAccessFields(allPermissions)
+      const permissionsForAccess = rolePermissions?.map(rp => rp.permissions).filter(Boolean) || []
+      const accessFields = deriveAccessFields(permissionsForAccess)
 
       // Update user with derived access fields
       const { error: updateAccessError } = await supabase
