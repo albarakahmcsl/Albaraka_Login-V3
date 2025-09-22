@@ -23,6 +23,54 @@ interface User {
   }>
 }
 
+// Helper function to derive access fields from permissions
+function deriveAccessFields(permissions: Array<{ resource: string; action: string }>) {
+  const menuAccess: string[] = []
+  const subMenuAccess: Record<string, string[]> = {}
+  const componentAccess: string[] = []
+
+  // Map permissions to menu access
+  const resourceToMenuMap: Record<string, string> = {
+    'dashboard': 'dashboard',
+    'users': 'user-management',
+    'roles': 'role-management',
+    'permissions': 'permission-management',
+    'bank_accounts': 'bank-accounts',
+    'account_types': 'account-types',
+    'reports': 'reports',
+    'transactions': 'transactions',
+    'analytics': 'analytics',
+    'admin': 'admin-panel'
+  }
+
+  // Derive menu access from permissions
+  permissions.forEach(permission => {
+    const menuId = resourceToMenuMap[permission.resource]
+    if (menuId && !menuAccess.includes(menuId)) {
+      menuAccess.push(menuId)
+    }
+
+    // Add component access for specific actions
+    if (permission.action === 'manage' || permission.action === 'create' || permission.action === 'access') {
+      const componentId = `${permission.resource}-${permission.action}`
+      if (!componentAccess.includes(componentId)) {
+        componentAccess.push(componentId)
+      }
+    }
+  })
+
+  // Add default dashboard access for all authenticated users
+  if (!menuAccess.includes('dashboard')) {
+    menuAccess.push('dashboard')
+  }
+
+  return {
+    menu_access: menuAccess,
+    sub_menu_access: subMenuAccess,
+    component_access: componentAccess
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -179,6 +227,37 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: userRolesError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
+      // Fetch permissions for the assigned roles to derive access fields
+      const { data: rolePermissions, error: permissionsError } = await supabase
+        .from('role_permissions')
+        .select(`
+          permissions(
+            resource,
+            action
+          )
+        `)
+        .in('role_id', role_ids)
+
+      if (permissionsError) {
+        console.error('Error fetching role permissions:', permissionsError)
+        // Don't fail user creation for this, just log the error
+      }
+
+      // Derive access fields from permissions
+      const allPermissions = rolePermissions?.map(rp => rp.permissions).filter(Boolean) || []
+      const accessFields = deriveAccessFields(allPermissions)
+
+      // Update user with derived access fields
+      const { error: updateAccessError } = await supabase
+        .from('users')
+        .update(accessFields)
+        .eq('id', authUser.user.id)
+
+      if (updateAccessError) {
+        console.error('Error updating user access fields:', updateAccessError)
+        // Don't fail user creation for this, just log the error
+      }
+
       // Get the created user with roles
       const { data: userWithRoles, error: fetchError } = await supabase
         .from('user_roles')
@@ -272,6 +351,37 @@ Deno.serve(async (req) => {
         .insert(userRoleInserts)
 
       if (insertRolesError) return new Response(JSON.stringify({ error: insertRolesError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+      // Fetch permissions for the assigned roles to derive access fields
+      const { data: rolePermissions, error: permissionsError } = await supabase
+        .from('role_permissions')
+        .select(`
+          permissions(
+            resource,
+            action
+          )
+        `)
+        .in('role_id', role_ids)
+
+      if (permissionsError) {
+        console.error('Error fetching role permissions:', permissionsError)
+        // Don't fail user update for this, just log the error
+      }
+
+      // Derive access fields from permissions
+      const allPermissions = rolePermissions?.map(rp => rp.permissions).filter(Boolean) || []
+      const accessFields = deriveAccessFields(allPermissions)
+
+      // Update user with derived access fields
+      const { error: updateAccessError } = await supabase
+        .from('users')
+        .update(accessFields)
+        .eq('id', userId)
+
+      if (updateAccessError) {
+        console.error('Error updating user access fields:', updateAccessError)
+        // Don't fail user update for this, just log the error
+      }
 
       // Get the updated user with roles
       const { data: userWithRoles, error: fetchError } = await supabase
