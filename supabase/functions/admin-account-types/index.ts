@@ -80,13 +80,36 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabase
+    // Check if user has permission to manage account types
+    const { data: userPermissions, error: permissionError } = await supabase
       .from('user_roles')
-      .select('roles(name)')
+      .select(`
+        roles(
+          role_permissions(
+            permissions(
+              resource,
+              action
+            )
+          )
+        )
+      `)
       .eq('user_id', user.id)
 
-    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin' || ur.roles?.name === 'director')) {
+    if (permissionError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to check user permissions' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check if user has account_types.manage permission
+    const hasAccountTypeAccess = userPermissions?.some(ur => 
+      ur.roles?.role_permissions?.some(rp => 
+        rp.permissions?.resource === 'account_types' && rp.permissions?.action === 'manage'
+      )
+    ) || false
+
+    if (!hasAccountTypeAccess) {
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

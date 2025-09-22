@@ -93,19 +93,54 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const authHeader = req.headers.get('Authorization')
-    const userRolesHeader = req.headers.get('x-user-roles') // JSON array of role names from frontend
 
-    if (!authHeader || !userRolesHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization or user roles header' }), {
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const userRoles: string[] = JSON.parse(userRolesHeader)
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-    // Check access based on cached roles
-    if (!userRoles.includes('admin') && !userRoles.includes('director') && !userRoles.includes('user-management')) {
+    // Check if user has permission to manage users
+    const { data: userPermissions, error: permissionError } = await supabase
+      .from('user_roles')
+      .select(`
+        roles(
+          role_permissions(
+            permissions(
+              resource,
+              action
+            )
+          )
+        )
+      `)
+      .eq('user_id', user.id)
+
+    if (permissionError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to check user permissions' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check if user has users.manage permission
+    const hasUserAccess = userPermissions?.some(ur => 
+      ur.roles?.role_permissions?.some(rp => 
+        rp.permissions?.resource === 'users' && rp.permissions?.action === 'manage'
+      )
+    ) || false
+
+    if (!hasUserAccess) {
       return new Response(JSON.stringify({ error: 'Insufficient permissions' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

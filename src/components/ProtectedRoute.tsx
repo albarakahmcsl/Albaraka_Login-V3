@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPermission, isAdmin } from '../utils/permissions'
+import { AccessDenied } from './AccessDenied'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -59,12 +60,12 @@ export function ProtectedRoute({
 
   if (requireAdmin && !isAdmin(user)) {
     console.log('[ProtectedRoute] Admin required but user is not admin, redirecting to dashboard')
-    return <Navigate to="/dashboard" replace />
+    return <AccessDenied message="You need administrator privileges to access this page." />
   }
 
   if (requiredPermission && !hasPermission(user, requiredPermission.resource, requiredPermission.action)) {
     console.log('[ProtectedRoute] Required permission not met:', requiredPermission)
-    return <Navigate to="/dashboard" replace />
+    return <AccessDenied message={`You need permission to ${requiredPermission.action} ${requiredPermission.resource} to access this page.`} />
   }
 
   console.log('[ProtectedRoute] All checks passed, rendering children')
