@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     const userRoles: string[] = JSON.parse(userRolesHeader)
 
     // Check access based on cached roles
-    if (!userRoles.includes('admin') && !userRoles.includes('user-management')) {
+    if (!userRoles.includes('admin') && !userRoles.includes('director') && !userRoles.includes('user-management')) {
       return new Response(JSON.stringify({ error: 'Insufficient permissions' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -48,8 +48,8 @@ export function hasPermission(user: User | null, resource: string, action: strin
   
   let hasAccess = false
   
-  // Check if user has admin role - admin has all permissions
-  if (user.roles?.some(role => role.name === 'admin')) {
+  // Check if user has admin or director role - these roles have all permissions
+  if (user.roles?.some(role => role.name === 'admin' || role.name === 'director')) {
     hasAccess = true
   } else {
     // Check if user has the specific permission through their roles
@@ -76,7 +76,7 @@ export function isAdmin(user: User | null): boolean {
     return permissionCache.get(cacheKey)!
   }
   
-  const isUserAdmin = user.roles?.some(role => role.name === 'admin') || false
+  const isUserAdmin = user.roles?.some(role => role.name === 'admin' || role.name === 'director') || false
   
   // Cache the result
   permissionCache.set(cacheKey, isUserAdmin)

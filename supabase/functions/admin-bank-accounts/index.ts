@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       .select('roles(name)')
       .eq('user_id', user.id)
 
-    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin')) {
+    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin' || ur.roles?.name === 'director')) {
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
