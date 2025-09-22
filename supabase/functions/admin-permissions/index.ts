@@ -33,14 +33,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate and check permissions
-    const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'manage')
-
     const url = new URL(req.url)
     const method = req.method
 
     // GET permissions
     if (method === 'GET' && url.pathname.endsWith('/admin-permissions')) {
+      // Check view permission for GET requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'view')
+
       const { data: permissionsData, error: permissionsError } = await supabase
         .from('permissions')
         .select('*')
@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
 
     // POST create permission
     if (method === 'POST' && url.pathname.endsWith('/admin-permissions')) {
+      // Check create permission for POST requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'create')
+
       const body: CreatePermissionData = await req.json()
       const { resource, action, description } = body
 
@@ -120,6 +123,9 @@ Deno.serve(async (req) => {
 
     // PUT update permission
     if (method === 'PUT') {
+      // Check update permission for PUT requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'update')
+
       const permissionId = url.pathname.split('/').pop()
       const body: UpdatePermissionData = await req.json()
       const { resource, action, description } = body
@@ -182,12 +188,7 @@ Deno.serve(async (req) => {
     // DELETE permission
     if (method === 'DELETE') {
       // Check delete permission for DELETE requests
-      try {
-        await authenticateAndCheckPermission(req, 'permissions', 'delete')
-      } catch (deleteError) {
-        // Fall back to manage permission for backward compatibility
-        await authenticateAndCheckPermission(req, 'permissions', 'manage')
-      }
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'delete')
 
       const permissionId = url.pathname.split('/').pop()
       

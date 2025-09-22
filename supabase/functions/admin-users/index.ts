@@ -88,14 +88,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
-    // Authenticate and check permissions
-    const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'manage')
-
     const url = new URL(req.url)
     const method = req.method
 
     // GET users
     if (method === 'GET' && url.pathname.endsWith('/admin-users')) {
+      // Check view permission for GET requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'view')
+
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select(`
@@ -155,6 +155,9 @@ Deno.serve(async (req) => {
 
     // POST create user
     if (method === 'POST' && url.pathname.endsWith('/admin-users')) {
+      // Check create permission for POST requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'create')
+
       const body: CreateUserData = await req.json()
       const { email, password, full_name, role_ids, menu_access = [], sub_menu_access = {}, component_access = [] } = body
 
@@ -291,6 +294,9 @@ Deno.serve(async (req) => {
 
     // PUT update user
     if (method === 'PUT') {
+      // Check update permission for PUT requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'update')
+
       const userId = url.pathname.split('/').pop()
       const body: UpdateUserData = await req.json()
       const { full_name, role_ids, menu_access, sub_menu_access, component_access, is_active, needs_password_reset } = body
@@ -420,12 +426,7 @@ Deno.serve(async (req) => {
     // DELETE user
     if (method === 'DELETE') {
       // Check delete permission for DELETE requests
-      try {
-        await authenticateAndCheckPermission(req, 'users', 'delete')
-      } catch (deleteError) {
-        // Fall back to manage permission for backward compatibility
-        await authenticateAndCheckPermission(req, 'users', 'manage')
-      }
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'delete')
 
       const userId = url.pathname.split('/').pop()
       

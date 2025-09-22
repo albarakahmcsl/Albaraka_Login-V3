@@ -38,14 +38,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate and check permissions
-    const { user, supabase } = await authenticateAndCheckPermission(req, 'roles', 'manage')
-
     const url = new URL(req.url)
     const method = req.method
 
     // GET roles
     if (method === 'GET' && url.pathname.endsWith('/admin-roles')) {
+      // Check view permission for GET requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'roles', 'view')
+
       const { data: rolesData, error: rolesError } = await supabase
         .from('roles')
         .select(`
@@ -85,6 +85,9 @@ Deno.serve(async (req) => {
 
     // POST create role
     if (method === 'POST' && url.pathname.endsWith('/admin-roles')) {
+      // Check create permission for POST requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'roles', 'create')
+
       const body: CreateRoleData = await req.json()
       const { name, description, permission_ids = [] } = body
 
@@ -173,6 +176,9 @@ Deno.serve(async (req) => {
 
     // PUT update role
     if (method === 'PUT') {
+      // Check update permission for PUT requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'roles', 'update')
+
       const roleId = url.pathname.split('/').pop()
       const body: UpdateRoleData = await req.json()
       const { name, description, permission_ids = [] } = body
@@ -275,12 +281,7 @@ Deno.serve(async (req) => {
     // DELETE role
     if (method === 'DELETE') {
       // Check delete permission for DELETE requests
-      try {
-        await authenticateAndCheckPermission(req, 'roles', 'delete')
-      } catch (deleteError) {
-        // Fall back to manage permission for backward compatibility
-        await authenticateAndCheckPermission(req, 'roles', 'manage')
-      }
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'roles', 'delete')
 
       const roleId = url.pathname.split('/').pop()
       

@@ -30,14 +30,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate and check permissions
-    const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'manage')
-
     const url = new URL(req.url)
     const method = req.method
 
     // GET bank accounts
     if (method === 'GET' && url.pathname.endsWith('/admin-bank-accounts')) {
+      // Check view permission for GET requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'view')
+
       const { data: bankAccountsData, error: bankAccountsError } = await supabase
         .from('bank_accounts')
         .select('*')
@@ -58,6 +58,9 @@ Deno.serve(async (req) => {
 
     // POST create bank account
     if (method === 'POST' && url.pathname.endsWith('/admin-bank-accounts')) {
+      // Check create permission for POST requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'create')
+
       const body: CreateBankAccountData = await req.json()
       const { name, account_number } = body
 
@@ -125,6 +128,9 @@ Deno.serve(async (req) => {
 
     // PUT update bank account
     if (method === 'PUT') {
+      // Check update permission for PUT requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'update')
+
       const bankAccountId = url.pathname.split('/').pop()
       const body: UpdateBankAccountData = await req.json()
       const { name, account_number } = body
@@ -214,12 +220,7 @@ Deno.serve(async (req) => {
     // DELETE bank account
     if (method === 'DELETE') {
       // Check delete permission for DELETE requests
-      try {
-        await authenticateAndCheckPermission(req, 'bank_accounts', 'delete')
-      } catch (deleteError) {
-        // Fall back to manage permission for backward compatibility
-        await authenticateAndCheckPermission(req, 'bank_accounts', 'manage')
-      }
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'bank_accounts', 'delete')
 
       const bankAccountId = url.pathname.split('/').pop()
       

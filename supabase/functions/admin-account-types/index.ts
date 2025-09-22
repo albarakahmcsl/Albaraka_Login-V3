@@ -57,14 +57,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate and check permissions
-    const { user, supabase } = await authenticateAndCheckPermission(req, 'account_types', 'manage')
-
     const url = new URL(req.url)
     const method = req.method
 
     // GET account types
     if (method === 'GET' && url.pathname.endsWith('/admin-account-types')) {
+      // Check view permission for GET requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'account_types', 'view')
+
       const { data: accountTypesData, error: accountTypesError } = await supabase
         .from('account_types')
         .select(`
@@ -92,6 +92,9 @@ Deno.serve(async (req) => {
 
     // POST create account type
     if (method === 'POST' && url.pathname.endsWith('/admin-account-types')) {
+      // Check create permission for POST requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'account_types', 'create')
+
       const body: CreateAccountTypeData = await req.json()
       const { 
         name, 
@@ -211,6 +214,9 @@ Deno.serve(async (req) => {
 
     // PUT update account type
     if (method === 'PUT') {
+      // Check update permission for PUT requests
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'account_types', 'update')
+
       const accountTypeId = url.pathname.split('/').pop()
       const body: UpdateAccountTypeData = await req.json()
       const { 
@@ -358,12 +364,7 @@ Deno.serve(async (req) => {
     // DELETE account type
     if (method === 'DELETE') {
       // Check delete permission for DELETE requests
-      try {
-        await authenticateAndCheckPermission(req, 'account_types', 'delete')
-      } catch (deleteError) {
-        // Fall back to manage permission for backward compatibility
-        await authenticateAndCheckPermission(req, 'account_types', 'manage')
-      }
+      const { user, supabase } = await authenticateAndCheckPermission(req, 'account_types', 'delete')
 
       const accountTypeId = url.pathname.split('/').pop()
       
