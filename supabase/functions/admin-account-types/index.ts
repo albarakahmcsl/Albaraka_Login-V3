@@ -14,7 +14,7 @@ interface AccountType {
   processing_fee: number
   is_member_account: boolean
   can_take_loan: boolean
-  dividend_rate: number
+  is_dividend_eligible: boolean
   is_active: boolean
   documents_required: string[]
   created_at: string
@@ -33,7 +33,7 @@ interface CreateAccountTypeData {
   processing_fee?: number
   is_member_account?: boolean
   can_take_loan?: boolean
-  dividend_rate?: number
+  is_dividend_eligible?: boolean
   is_active?: boolean
   documents_required?: string[]
 }
@@ -45,7 +45,7 @@ interface UpdateAccountTypeData {
   processing_fee?: number
   is_member_account?: boolean
   can_take_loan?: boolean
-  dividend_rate?: number
+  is_dividend_eligible?: boolean
   is_active?: boolean
   documents_required?: string[]
 }
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
         processing_fee = 0.00,
         is_member_account = false,
         can_take_loan = false,
-        dividend_rate = 0.00,
+        is_dividend_eligible = false,
         is_active = true,
         documents_required = []
       } = body
@@ -154,9 +154,9 @@ Deno.serve(async (req) => {
       }
 
       // Validate numeric fields
-      if (processing_fee < 0 || dividend_rate < 0 || dividend_rate > 100) {
+      if (processing_fee < 0) {
         return new Response(
-          JSON.stringify({ error: 'Processing fee must be non-negative and dividend rate must be between 0-100%' }),
+          JSON.stringify({ error: 'Processing fee must be non-negative' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
           processing_fee,
           is_member_account,
           can_take_loan,
-          dividend_rate,
+          is_dividend_eligible,
           is_active,
           documents_required: documents_required || []
         })
@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
         processing_fee,
         is_member_account,
         can_take_loan,
-        dividend_rate,
+        is_dividend_eligible,
         is_active,
         documents_required
       } = body
@@ -333,14 +333,8 @@ Deno.serve(async (req) => {
         updateData.processing_fee = processing_fee
       }
 
-      if (dividend_rate !== undefined) {
-        if (dividend_rate < 0 || dividend_rate > 100) {
-          return new Response(
-            JSON.stringify({ error: 'Dividend rate must be between 0-100%' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-        updateData.dividend_rate = dividend_rate
+      if (is_dividend_eligible !== undefined) {
+        updateData.is_dividend_eligible = is_dividend_eligible
       }
 
       if (is_member_account !== undefined) {
