@@ -4,10 +4,13 @@ import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign } from 'lucide-react'
 import { FileText, CheckCircle2, XCircle as XCircle2 } from 'lucide-react'
 import { accountTypesApi, bankAccountsApi, ApiError } from '../lib/dataFetching'
+import { useAuth } from '../contexts/AuthContext'
+import { hasPermission } from '../utils/permissions'
 import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAccount } from '../types'
 
 export function AdminAccountTypes() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -106,6 +109,10 @@ export function AdminAccountTypes() {
     (accountType.bank_account?.name && accountType.bank_account.name.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
+  // Permission checks
+  const canCreateAccountTypes = hasPermission(currentUser, 'account_types', 'create')
+  const canUpdateAccountTypes = hasPermission(currentUser, 'account_types', 'update')
+  const canDeleteAccountTypes = hasPermission(currentUser, 'account_types', 'delete')
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -118,13 +125,15 @@ export function AdminAccountTypes() {
             Configure Islamic finance account types with specific rules and properties
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Account Type
-        </button>
+        {canCreateAccountTypes && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Account Type
+          </button>
+        )}
       </div>
 
       {error && (
@@ -168,13 +177,15 @@ export function AdminAccountTypes() {
             </p>
             {!searchTerm && (
               <div className="mt-6">
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Account Type
-                </button>
+                {canCreateAccountTypes && (
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Account Type
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -263,23 +274,27 @@ export function AdminAccountTypes() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => {
-                          setSelectedAccountType(accountType)
-                          setShowEditModal(true)
-                        }}
-                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        title="Edit account type"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteAccountType(accountType.id)}
-                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        title="Delete account type"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canUpdateAccountTypes && (
+                        <button
+                          onClick={() => {
+                            setSelectedAccountType(accountType)
+                            setShowEditModal(true)
+                          }}
+                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          title="Edit account type"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDeleteAccountTypes && (
+                        <button
+                          onClick={() => handleDeleteAccountType(accountType.id)}
+                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          title="Delete account type"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -290,14 +305,14 @@ export function AdminAccountTypes() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && (
+      {showCreateModal && canCreateAccountTypes && (
         <CreateAccountTypeModal
           bankAccounts={bankAccounts}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateAccountType}
         />
       )}
-      {showEditModal && selectedAccountType && (
+      {showEditModal && selectedAccountType && canUpdateAccountTypes && (
         <EditAccountTypeModal
           accountType={selectedAccountType}
           bankAccounts={bankAccounts}
@@ -322,6 +337,7 @@ function CreateAccountTypeModal({
   onClose: () => void
   onSubmit: (accountTypeData: CreateAccountTypeData) => void
 }) {
+  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -506,7 +522,7 @@ function CreateAccountTypeModal({
               </button>
               <button
                 type="submit"
-                disabled={!formData.name.trim() || !formData.bank_account_id}
+                disabled={!formData.name.trim() || !formData.bank_account_id || !hasPermission(currentUser, 'account_types', 'create')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Account Type
@@ -531,6 +547,7 @@ function EditAccountTypeModal({
   onClose: () => void
   onSubmit: (accountTypeData: UpdateAccountTypeData) => void
 }) {
+  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: accountType.name,
     description: accountType.description || '',
@@ -711,7 +728,7 @@ function EditAccountTypeModal({
               </button>
               <button
                 type="submit"
-                disabled={!formData.name.trim() || !formData.bank_account_id}
+                disabled={!formData.name.trim() || !formData.bank_account_id || !hasPermission(currentUser, 'account_types', 'update')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Update Account Type

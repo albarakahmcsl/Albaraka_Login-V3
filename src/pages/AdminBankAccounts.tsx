@@ -3,10 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Banknote } from 'lucide-react'
 import { bankAccountsApi, ApiError } from '../lib/dataFetching'
+import { useAuth } from '../contexts/AuthContext'
+import { hasPermission } from '../utils/permissions'
 import type { BankAccount, CreateBankAccountData, UpdateBankAccountData } from '../types'
 
 export function AdminBankAccounts() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -98,6 +101,10 @@ export function AdminBankAccounts() {
     account.account_number.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Permission checks
+  const canCreateBankAccounts = hasPermission(currentUser, 'bank_accounts', 'create')
+  const canUpdateBankAccounts = hasPermission(currentUser, 'bank_accounts', 'update')
+  const canDeleteBankAccounts = hasPermission(currentUser, 'bank_accounts', 'delete')
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -110,13 +117,15 @@ export function AdminBankAccounts() {
             Manage bank accounts for financial operations
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Bank Account
-        </button>
+        {canCreateBankAccounts && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Bank Account
+          </button>
+        )}
       </div>
 
       {error && (
@@ -160,13 +169,15 @@ export function AdminBankAccounts() {
             </p>
             {!searchTerm && (
               <div className="mt-6">
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Bank Account
-                </button>
+                {canCreateBankAccounts && (
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Bank Account
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -194,23 +205,27 @@ export function AdminBankAccounts() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        setSelectedBankAccount(account)
-                        setShowEditModal(true)
-                      }}
-                      className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      title="Edit bank account"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteBankAccount(account.id)}
-                      className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                      title="Delete bank account"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canUpdateBankAccounts && (
+                      <button
+                        onClick={() => {
+                          setSelectedBankAccount(account)
+                          setShowEditModal(true)
+                        }}
+                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        title="Edit bank account"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canDeleteBankAccounts && (
+                      <button
+                        onClick={() => handleDeleteBankAccount(account.id)}
+                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        title="Delete bank account"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>
@@ -220,13 +235,13 @@ export function AdminBankAccounts() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && (
+      {showCreateModal && canCreateBankAccounts && (
         <CreateBankAccountModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateBankAccount}
         />
       )}
-      {showEditModal && selectedBankAccount && (
+      {showEditModal && selectedBankAccount && canUpdateBankAccounts && (
         <EditBankAccountModal
           bankAccount={selectedBankAccount}
           onClose={() => {
@@ -248,6 +263,7 @@ function CreateBankAccountModal({
   onClose: () => void
   onSubmit: (bankAccountData: CreateBankAccountData) => void
 }) {
+  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     account_number: ''
@@ -307,6 +323,7 @@ function CreateBankAccountModal({
               <button
                 type="submit"
                 disabled={!formData.name.trim() || !formData.account_number.trim()}
+                disabled={!formData.name.trim() || !formData.account_number.trim() || !hasPermission(currentUser, 'bank_accounts', 'create')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Account
@@ -329,6 +346,7 @@ function EditBankAccountModal({
   onClose: () => void
   onSubmit: (bankAccountData: UpdateBankAccountData) => void
 }) {
+  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: bankAccount.name,
     account_number: bankAccount.account_number
@@ -385,7 +403,7 @@ function EditBankAccountModal({
               </button>
               <button
                 type="submit"
-                disabled={!formData.name.trim() || !formData.account_number.trim()}
+                disabled={!formData.name.trim() || !formData.account_number.trim() || !hasPermission(currentUser, 'bank_accounts', 'update')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Update Account

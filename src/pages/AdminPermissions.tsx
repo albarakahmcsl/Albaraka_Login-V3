@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Key, Shield } from 'lucide-react'
 import { adminPermissionsApi, ApiError } from '../lib/dataFetching'
+import { useAuth } from '../contexts/AuthContext'
+import { hasPermission } from '../utils/permissions'
 import { 
   getAllResources, 
   getActionsForResource, 
@@ -14,6 +16,7 @@ import type { Permission, CreatePermissionData, UpdatePermissionData } from '../
 
 export function AdminPermissions() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -100,6 +103,10 @@ export function AdminPermissions() {
     return acc
   }, {} as Record<string, Permission[]>)
 
+  // Permission checks
+  const canCreatePermissions = hasPermission(currentUser, 'permissions', 'create')
+  const canUpdatePermissions = hasPermission(currentUser, 'permissions', 'update')
+  const canDeletePermissions = hasPermission(currentUser, 'permissions', 'delete')
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -112,13 +119,15 @@ export function AdminPermissions() {
             Create and manage system permissions for granular access control
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Permission
-        </button>
+        {canCreatePermissions && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Permission
+          </button>
+        )}
       </div>
 
       {error && (
@@ -173,21 +182,27 @@ export function AdminPermissions() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedPermission(permission)
-                            setShowEditModal(true)
-                          }}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePermission(permission.id)}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                       {canUpdatePermissions && (
+                         <button
+                           onClick={() => {
+                             setSelectedPermission(permission)
+                             setShowEditModal(true)
+                           }}
+                           className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                           title="Edit permission"
+                         >
+                           <Edit className="h-4 w-4" />
+                         </button>
+                       )}
+                       {canDeletePermissions && (
+                         <button
+                           onClick={() => handleDeletePermission(permission.id)}
+                           className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                           title="Delete permission"
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </button>
+                       )}
                       </div>
                     </div>
                   ))}
@@ -199,13 +214,13 @@ export function AdminPermissions() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && (
+      {showCreateModal && canCreatePermissions && (
         <CreatePermissionModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreatePermission}
         />
       )}
-      {showEditModal && selectedPermission && (
+      {showEditModal && selectedPermission && canUpdatePermissions && (
         <EditPermissionModal
           permission={selectedPermission}
           onClose={() => {
@@ -227,6 +242,7 @@ function CreatePermissionModal({
   onClose: () => void
   onSubmit: (permissionData: CreatePermissionData) => void
 }) {
+  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     resource: '',
     action: '',
@@ -350,6 +366,7 @@ function CreatePermissionModal({
               </button>
               <button
                 type="submit"
+                disabled={!hasPermission(currentUser, 'permissions', 'create')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Create Permission
@@ -372,6 +389,7 @@ function EditPermissionModal({
   onClose: () => void
   onSubmit: (permissionData: UpdatePermissionData) => void
 }) {
+  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     resource: permission.resource,
     action: permission.action,
@@ -500,6 +518,7 @@ function EditPermissionModal({
               </button>
               <button
                 type="submit"
+                disabled={!hasPermission(currentUser, 'permissions', 'update')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Update Permission
