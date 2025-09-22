@@ -23,6 +23,45 @@ interface User {
   }>
 }
 
+function deriveAccessFields(permissions: Array<{ resource: string; action: string }>) {
+  const menuAccess: string[] = []
+  const subMenuAccess: Record<string, string[]> = {}
+  const componentAccess: string[] = []
+
+  permissions.forEach((permission) => {
+    // Handle UI menu permissions
+    if (permission.resource === 'ui_menu') {
+      if (!menuAccess.includes(permission.action)) {
+        menuAccess.push(permission.action)
+      }
+    }
+    
+    // Handle UI component permissions
+    if (permission.resource === 'ui_component') {
+      if (!componentAccess.includes(permission.action)) {
+        componentAccess.push(permission.action)
+      }
+    }
+    
+    // Handle UI page permissions (also added to component access for routing)
+    if (permission.resource === 'ui_page') {
+      if (!componentAccess.includes(permission.action)) {
+        componentAccess.push(permission.action)
+      }
+    }
+  })
+
+  // Ensure all users have dashboard access by default
+  if (!menuAccess.includes('dashboard')) {
+    menuAccess.push('dashboard')
+  }
+
+  return {
+    menu_access: menuAccess,
+    sub_menu_access: subMenuAccess,
+    component_access: componentAccess,
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
