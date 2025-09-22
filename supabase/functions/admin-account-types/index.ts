@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { authenticateAndCheckPermission } from './utils/permissionChecks.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,65 +57,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Authenticate the request
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Check if user has permission to manage account types
-    const { data: userPermissions, error: permissionError } = await supabase
-      .from('user_roles')
-      .select(`
-        roles(
-          role_permissions(
-            permissions(
-              resource,
-              action
-            )
-          )
-        )
-      `)
-      .eq('user_id', user.id)
-
-    if (permissionError) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to check user permissions' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Check if user has account_types.manage permission
-    const hasAccountTypeAccess = userPermissions?.some(ur => 
-      ur.roles?.role_permissions?.some(rp => 
-        rp.permissions?.resource === 'account_types' && rp.permissions?.action === 'manage'
-      )
-    ) || false
-
-    if (!hasAccountTypeAccess) {
-      return new Response(
-        JSON.stringify({ error: 'Insufficient permissions' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Authenticate and check permissions
+    const { user, supabase } = await authenticateAndCheckPermission(req, 'account_types', 'manage')
 
     const url = new URL(req.url)
     const method = req.method
@@ -450,6 +394,22 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in admin-account-types function:', error)
+    
+    // Handle specific error types
+    if (error.message === 'Missing authorization header' || error.message === 'Invalid authorization token') {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (error.message === 'Insufficient permissions') {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
