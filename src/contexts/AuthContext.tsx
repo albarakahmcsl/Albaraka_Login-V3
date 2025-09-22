@@ -128,17 +128,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = useCallback(async () => {
     setAuthLoading(true);
     try {
+      // Capture user ID before clearing session
+      const currentUserId = authSession?.user?.id;
+      
       await supabase.auth.signOut();
       setAuthSession(null);
       setError(null);
       
       // Clear all cached user data
-      reactQueryClient.removeQueries({
-        queryKey: queryKeys.userProfile('')
-      });
+      if (currentUserId) {
+        reactQueryClient.removeQueries({
+          queryKey: queryKeys.userProfile(currentUserId)
+        });
+      }
       reactQueryClient.removeQueries({
         queryKey: queryKeys.currentUser()
       });
+      
+      // Clear all queries to ensure clean state
+      reactQueryClient.clear();
     } catch (err: any) {
       console.error('SignOut error:', err);
     } finally {
@@ -181,17 +189,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!isMounted) return;
 
         if (event === 'SIGNED_OUT' || !session?.user) {
+          // Capture user ID before clearing session
+          const currentUserId = authSession?.user?.id;
+          
           setAuthSession(null);
           setError(null);
           setAuthLoading(false);
           
           // Clear all cached user data
-          reactQueryClient.removeQueries({
-            queryKey: queryKeys.userProfile('')
-          });
+          if (currentUserId) {
+            reactQueryClient.removeQueries({
+              queryKey: queryKeys.userProfile(currentUserId)
+            });
+          }
           reactQueryClient.removeQueries({
             queryKey: queryKeys.currentUser()
           });
+          
+          // Clear all queries to ensure clean state
+          reactQueryClient.clear();
           return;
         }
 
