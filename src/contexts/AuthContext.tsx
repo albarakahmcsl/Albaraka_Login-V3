@@ -196,6 +196,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             'Profile fetch timed out during auth state change'
           )
           
+          // Check if user profile exists
+          if (!freshProfile) {
+            console.log('[AuthContext] Auth state change - No user profile found, signing out')
+            setUser(null)
+            clearUserFromCache()
+            queryClient.removeQueries({ queryKey: queryKeys.userProfile(session.user.id) })
+            await supabase.auth.signOut()
+            setError('User profile not found. Please contact an administrator.')
+            return
+          }
+          
           // Check if user account is active
           if (!freshProfile?.is_active) {
             console.log('[AuthContext] Auth state change - User account is inactive, signing out')
@@ -203,6 +214,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             clearUserFromCache()
             queryClient.removeQueries({ queryKey: queryKeys.userProfile(session.user.id) })
             await supabase.auth.signOut()
+            setError('Account is inactive. Please contact an administrator.')
             return
           }
           
@@ -278,7 +290,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   /**
    * Signs in a user with email + password using Supabase auth.
-   * If successful, fetches their extended profile and saves it locally.
+   * The onAuthStateChange listener will handle profile fetching.
    */
   const signIn = useCallback(async (email: string, password: string) => {
     console.log('[AuthContext] signIn START - email:', email)
@@ -294,27 +306,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         throw error
       }
 
-      if (data.user) {
-        console.log('[AuthContext] signIn - Auth successful, fetching profile...')
-        const profile = await withTimeout(
-          fetchUserProfile(data.user.id),
-          5000,
-          'Profile fetch timed out during sign in'
-        )
-
-        // prevent inactive accounts from signing in
-        if (!profile?.is_active) {
-          console.error('[AuthContext] signIn - Account is inactive')
-          await supabase.auth.signOut()
-          throw new Error('Account is inactive')
-        }
-
-        setUser(profile)
-        clearPermissionCache()
-        saveUserToCache(profile)
-        resetInactivityTimer() // Start inactivity timer after successful login
-        console.log('[AuthContext] signIn SUCCESS - user set:', profile)
-      }
+      console.log('[AuthContext] signIn SUCCESS - auth completed, profile will be fetched by onAuthStateChange')
     } catch (err: any) {
       console.error('[AuthContext] signIn ERROR:', err)
       setError(err.message)
