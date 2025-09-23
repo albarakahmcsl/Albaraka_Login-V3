@@ -2,21 +2,11 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Key, Shield } from 'lucide-react'
-import { permissionsManagementApi, ApiError } from '../lib/dataFetching'
-import { useAuth } from '../contexts/AuthContext'
-import { hasPermission } from '../utils/permissions'
-import { 
-  getAllResources, 
-  getActionsForResource, 
-  getPermissionDescription,
-  getResourcesByCategory,
-  isValidPermission 
-} from '../constants/permissions'
+import { adminPermissionsApi, ApiError } from '../lib/dataFetching'
 import type { Permission, CreatePermissionData, UpdatePermissionData } from '../types/auth'
 
 export function AdminPermissions() {
   const queryClient = useQueryClient()
-  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -27,19 +17,18 @@ export function AdminPermissions() {
 
   // Fetch permissions
   const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
-    queryKey: queryKeys.permissionsManagement(),
-    queryFn: permissionsManagementApi.getPermissions,
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'permissions', 'view'),
+    queryKey: queryKeys.adminPermissions(),
+    queryFn: adminPermissionsApi.getPermissions,
   })
 
   // Mutations for permission operations
   const createPermissionMutation = useMutation({
-    mutationFn: permissionsManagementApi.createPermission,
+    mutationFn: adminPermissionsApi.createPermission,
     onSuccess: () => {
       setSuccess('Permission created successfully')
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.permissionsManagement() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPermissions() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create permission')
@@ -48,13 +37,13 @@ export function AdminPermissions() {
 
   const updatePermissionMutation = useMutation({
     mutationFn: ({ permissionId, permissionData }: { permissionId: string; permissionData: UpdatePermissionData }) =>
-      permissionsManagementApi.updatePermission(permissionId, permissionData),
+      adminPermissionsApi.updatePermission(permissionId, permissionData),
     onSuccess: () => {
       setSuccess('Permission updated successfully')
       setShowEditModal(false)
       setSelectedPermission(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.permissionsManagement() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPermissions() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update permission')
@@ -62,11 +51,11 @@ export function AdminPermissions() {
   })
 
   const deletePermissionMutation = useMutation({
-    mutationFn: permissionsManagementApi.deletePermission,
+    mutationFn: adminPermissionsApi.deletePermission,
     onSuccess: () => {
       setSuccess('Permission deleted successfully')
-      queryClient.invalidateQueries({ queryKey: queryKeys.permissionsManagement() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPermissions() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete permission')
@@ -104,11 +93,6 @@ export function AdminPermissions() {
     return acc
   }, {} as Record<string, Permission[]>)
 
-  // Permission checks
-  const canCreatePermissions = hasPermission(currentUser, 'permissions', 'create')
-  const canUpdatePermissions = hasPermission(currentUser, 'permissions', 'update')
-  const canDeletePermissions = hasPermission(currentUser, 'permissions', 'delete')
-
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -121,15 +105,13 @@ export function AdminPermissions() {
             Create and manage system permissions for granular access control
           </p>
         </div>
-        {canCreatePermissions && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Permission
-          </button>
-        )}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Permission
+        </button>
       </div>
 
       {error && (
@@ -184,27 +166,21 @@ export function AdminPermissions() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                       {canUpdatePermissions && (
-                         <button
-                           onClick={() => {
-                             setSelectedPermission(permission)
-                             setShowEditModal(true)
-                           }}
-                           className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                           title="Edit permission"
-                         >
-                           <Edit className="h-4 w-4" />
-                         </button>
-                       )}
-                       {canDeletePermissions && (
-                         <button
-                           onClick={() => handleDeletePermission(permission.id)}
-                           className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                           title="Delete permission"
-                         >
-                           <Trash2 className="h-4 w-4" />
-                         </button>
-                       )}
+                        <button
+                          onClick={() => {
+                            setSelectedPermission(permission)
+                            setShowEditModal(true)
+                          }}
+                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePermission(permission.id)}
+                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -216,13 +192,13 @@ export function AdminPermissions() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && canCreatePermissions && (
+      {showCreateModal && (
         <CreatePermissionModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreatePermission}
         />
       )}
-      {showEditModal && selectedPermission && canUpdatePermissions && (
+      {showEditModal && selectedPermission && (
         <EditPermissionModal
           permission={selectedPermission}
           onClose={() => {
@@ -244,104 +220,45 @@ function CreatePermissionModal({
   onClose: () => void
   onSubmit: (permissionData: CreatePermissionData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     resource: '',
     action: '',
     description: ''
   })
-  const [selectedResource, setSelectedResource] = useState('')
-  const [availableActions, setAvailableActions] = useState<Array<{ value: string; label: string; description: string }>>([])
-
-  // Update available actions when resource changes
-  React.useEffect(() => {
-    if (selectedResource) {
-      const actions = getActionsForResource(selectedResource)
-      setAvailableActions(actions)
-      // Reset action when resource changes
-      setFormData(prev => ({ ...prev, action: '', description: '' }))
-    } else {
-      setAvailableActions([])
-    }
-  }, [selectedResource])
-
-  // Update description when resource and action are selected
-  React.useEffect(() => {
-    if (formData.resource && formData.action) {
-      const suggestedDescription = getPermissionDescription(formData.resource, formData.action)
-      setFormData(prev => ({ ...prev, description: suggestedDescription }))
-    }
-  }, [formData.resource, formData.action])
-
-  const handleResourceChange = (resource: string) => {
-    setSelectedResource(resource)
-    setFormData(prev => ({ ...prev, resource, action: '', description: '' }))
-  }
-
-  const handleActionChange = (action: string) => {
-    setFormData(prev => ({ ...prev, action }))
-  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validate the permission combination
-    if (!isValidPermission(formData.resource, formData.action)) {
-      alert('Invalid resource and action combination')
-      return
-    }
-    
     onSubmit(formData)
   }
 
-  const resourcesByCategory = getResourcesByCategory()
-
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Permission</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Resource</label>
-              <select
+              <input
+                type="text"
                 required
                 value={formData.resource}
-                onChange={(e) => handleResourceChange(e.target.value)}
+                onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="">Select a resource</option>
-                {Object.entries(resourcesByCategory).map(([category, resources]) => (
-                  <optgroup key={category} label={category}>
-                    {resources.map((resource) => (
-                      <option key={resource.name} value={resource.name}>
-                        {resource.label} - {resource.description}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+                placeholder="e.g., users, reports, transactions"
+              />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700">Action</label>
-              <select
+              <input
+                type="text"
                 required
                 value={formData.action}
-                onChange={(e) => handleActionChange(e.target.value)}
+                onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                disabled={!selectedResource}
-              >
-                <option value="">Select an action</option>
-                {availableActions.map((action) => (
-                  <option key={action.value} value={action.value}>
-                    {action.label} - {action.description}
-                  </option>
-                ))}
-              </select>
-              {!selectedResource && (
-                <p className="text-xs text-gray-500 mt-1">Select a resource first to see available actions</p>
-              )}
+                placeholder="e.g., create, read, update, delete"
+              />
             </div>
 
             <div>
@@ -351,11 +268,8 @@ function CreatePermissionModal({
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 rows={3}
-                placeholder="Description will be auto-filled based on your selection, but you can customize it"
+                placeholder="Describe what this permission allows"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                This description helps other administrators understand what this permission grants
-              </p>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -368,7 +282,6 @@ function CreatePermissionModal({
               </button>
               <button
                 type="submit"
-                disabled={!hasPermission(currentUser, 'permissions', 'create')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Create Permission
@@ -391,110 +304,43 @@ function EditPermissionModal({
   onClose: () => void
   onSubmit: (permissionData: UpdatePermissionData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     resource: permission.resource,
     action: permission.action,
     description: permission.description || ''
   })
-  const [selectedResource, setSelectedResource] = useState(permission.resource)
-  const [availableActions, setAvailableActions] = useState<Array<{ value: string; label: string; description: string }>>([])
-
-  // Initialize available actions based on current resource
-  React.useEffect(() => {
-    if (selectedResource) {
-      const actions = getActionsForResource(selectedResource)
-      setAvailableActions(actions)
-    }
-  }, [selectedResource])
-
-  // Update available actions when resource changes
-  React.useEffect(() => {
-    if (selectedResource && selectedResource !== permission.resource) {
-      const actions = getActionsForResource(selectedResource)
-      setAvailableActions(actions)
-      // Reset action when resource changes (but not on initial load)
-      setFormData(prev => ({ ...prev, action: '', description: '' }))
-    }
-  }, [selectedResource, permission.resource])
-
-  // Update description when resource and action are selected
-  React.useEffect(() => {
-    if (formData.resource && formData.action && (formData.resource !== permission.resource || formData.action !== permission.action)) {
-      const suggestedDescription = getPermissionDescription(formData.resource, formData.action)
-      setFormData(prev => ({ ...prev, description: suggestedDescription }))
-    }
-  }, [formData.resource, formData.action, permission.resource, permission.action])
-
-  const handleResourceChange = (resource: string) => {
-    setSelectedResource(resource)
-    setFormData(prev => ({ ...prev, resource }))
-  }
-
-  const handleActionChange = (action: string) => {
-    setFormData(prev => ({ ...prev, action }))
-  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validate the permission combination
-    if (!isValidPermission(formData.resource, formData.action)) {
-      alert('Invalid resource and action combination')
-      return
-    }
-    
     onSubmit(formData)
   }
 
-  const resourcesByCategory = getResourcesByCategory()
-
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Permission</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Resource</label>
-              <select
+              <input
+                type="text"
                 required
                 value={formData.resource}
-                onChange={(e) => handleResourceChange(e.target.value)}
+                onChange={(e) => setFormData(prev => ({ ...prev, resource: e.target.value }))}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="">Select a resource</option>
-                {Object.entries(resourcesByCategory).map(([category, resources]) => (
-                  <optgroup key={category} label={category}>
-                    {resources.map((resource) => (
-                      <option key={resource.name} value={resource.name}>
-                        {resource.label} - {resource.description}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700">Action</label>
-              <select
+              <input
+                type="text"
                 required
                 value={formData.action}
-                onChange={(e) => handleActionChange(e.target.value)}
+                onChange={(e) => setFormData(prev => ({ ...prev, action: e.target.value }))}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                disabled={!selectedResource}
-              >
-                <option value="">Select an action</option>
-                {availableActions.map((action) => (
-                  <option key={action.value} value={action.value}>
-                    {action.label} - {action.description}
-                  </option>
-                ))}
-              </select>
-              {!selectedResource && (
-                <p className="text-xs text-gray-500 mt-1">Select a resource first to see available actions</p>
-              )}
+              />
             </div>
 
             <div>
@@ -505,9 +351,6 @@ function EditPermissionModal({
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 rows={3}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                This description helps other administrators understand what this permission grants
-              </p>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -520,7 +363,6 @@ function EditPermissionModal({
               </button>
               <button
                 type="submit"
-                disabled={!hasPermission(currentUser, 'permissions', 'update')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Update Permission

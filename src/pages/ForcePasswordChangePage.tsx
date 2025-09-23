@@ -20,14 +20,13 @@ export function ForcePasswordChangePage() {
     errors: string[]
   } | null>(null)
 
-  // Redirect if user shouldn't be here
   useEffect(() => {
+    // If user is not logged in or doesn't need password reset, redirect
     if (!authLoading && (!user || !user.needs_password_reset)) {
       navigate('/dashboard', { replace: true })
     }
   }, [user, authLoading, navigate])
 
-  // Validate password strength
   useEffect(() => {
     if (password) {
       validatePasswordStrength(password).then(result => {
@@ -65,17 +64,17 @@ export function ForcePasswordChangePage() {
     }
 
     try {
-      // Change password and clear reset flag
+      // Call changePassword with clearNeedsPasswordReset = true (forced password change)
       await changePassword(password, true)
-      setMessage('Your password has been successfully changed. Redirecting to login...')
+      setMessage('Your password has been successfully changed. You will be redirected to the login page.')
       setIsSuccess(true)
       setPassword('')
       setConfirmPassword('')
-
-      // Clear session and redirect to login
-      await signOut()
-      navigate('/login', { replace: true })
-
+      
+      // Log out the user (signOut will handle redirect)
+      setTimeout(() => {
+        signOut()
+      }, 2000)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to change password.')
       setIsSuccess(false)
@@ -84,8 +83,7 @@ export function ForcePasswordChangePage() {
     }
   }
 
-  // Show spinner while loading auth state or password change
-  if (authLoading || isLoading || !user || !user.needs_password_reset) {
+  if (authLoading || !user || !user.needs_password_reset) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-600"></div>
@@ -163,7 +161,7 @@ export function ForcePasswordChangePage() {
                 </div>
               )}
             </div>
-
+            
             <div>
               <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm New Password

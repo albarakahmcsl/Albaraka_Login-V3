@@ -1,171 +1,257 @@
-s)
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
-      if (roleCheckError || !validRoles || validRoles.length !== role_ids.length) {
-        return new Response(
-          JSON.stringify({ error: 'One or more invalid role IDs provided' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
+
+interface User {
+  id: string
+  email: string
+  full_name: string
+  role_ids?: string[]
+  menu_access: string[]
+  sub_menu_access: Record<string, string[]>
+  component_access: string[]
+  is_active: boolean
+  needs_password_reset: boolean
+  roles?: Array<{
+    id: string
+    name: string
+    description: string
+  }>
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const frontendBaseUrl = Deno.env.get('FRONTEND_BASE_URL') || 'http://localhost:5173'
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { data: userData, error: userError } = await supabase
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+
+    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin')) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient permissions' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const url = new URL(req.url)
+    const method = req.method
+
+    // GET users
+    if (method === 'GET' && url.pathname.endsWith('/admin-users')) {
+      // Get all users with their roles in a single optimized query
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select(`
+          id, 
+          email, 
+          full_name, 
+          menu_access, 
+          sub_menu_access, 
+          component_access, 
+          is_active, 
+          created_at, 
+          needs_password_reset,
+          user_roles(
+            roles(
+              id,
+              name,
+              description,
+              role_permissions(
+                permissions(
+                  id,
+                  resource,
+                  action,
+                  description
+                )
+              )
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (usersError) return new Response(JSON.stringify({ error: usersError.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+      // Transform the data to match the expected format
+      const users = usersData?.map(user => {
+        const userRoles = user.user_roles?.map(ur => ur.roles).filter(Boolean) || []
+        
+        // Flatten all permissions from all roles
+        const allPermissions = userRoles.flatMap(role => 
+          role.role_permissions?.map(rp => rp.permissions).filter(Boolean) || []
         )
+        
+        // Remove duplicate permissions based on resource + action combination
+        const uniquePermissions = allPermissions.filter((permission, index, array) => 
+          array.findIndex(p => p.resource === permission.resource && p.action === permission.action) === index
+        )
+        
+        return {
+          ...user,
+          roles: userRoles,
+          role_ids: userRoles.map(role => role.id),
+          permissions: uniquePermissions
+        }
+      }) || []
+
+      return new Response(JSON.stringify({ users }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // POST create user
+    if (method === 'POST' && url.pathname.endsWith('/admin-users')) {
+      const body = await req.json()
+      const { email, password, full_name, role_ids, menu_access, sub_menu_access, component_access } = body
+
+      if (!role_ids || !Array.isArray(role_ids) || role_ids.length === 0) {
+        return new Response(JSON.stringify({ error: 'At least one role must be assigned' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
-      // Create user in auth
       const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true
       })
 
-      if (authError) {
-        return new Response(
-          JSON.stringify({ error: authError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      if (authError) return new Response(JSON.stringify({ error: authError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-      // Create user profile in public.users
-      const { data: newUser, error: userError } = await supabase
+      const { data: newUser, error: profileError } = await supabase
         .from('users')
         .insert({
           id: authUser.user.id,
           email,
           full_name,
-          menu_access,
-          sub_menu_access,
-          component_access,
-          is_active: true,
-          needs_password_reset: true // Force password change on first login
+          menu_access: menu_access || [],
+          sub_menu_access: sub_menu_access || {},
+          component_access: component_access || [],
+          needs_password_reset: true
         })
         .select('*')
         .single()
 
-      if (userError) {
-        // Rollback: delete auth user
+      if (profileError) {
         await supabase.auth.admin.deleteUser(authUser.user.id)
-        return new Response(
-          JSON.stringify({ error: userError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({ error: profileError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
-      // Assign roles to user
+      // Insert user roles
       const userRoleInserts = role_ids.map(role_id => ({
         user_id: authUser.user.id,
         role_id
       }))
 
-      const { error: roleAssignError } = await supabase
+      const { error: userRolesError } = await supabase
         .from('user_roles')
         .insert(userRoleInserts)
 
-      if (roleAssignError) {
-        // Rollback: delete user and auth user
-        await supabase.from('users').delete().eq('id', authUser.user.id)
+      if (userRolesError) {
         await supabase.auth.admin.deleteUser(authUser.user.id)
-        return new Response(
-          JSON.stringify({ error: roleAssignError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({ error: userRolesError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
-      // Fetch the created user with roles
+      // Get the created user with roles
       const { data: userWithRoles, error: fetchError } = await supabase
-        .from('users')
+        .from('user_roles')
         .select(`
-          id,
-          email,
-          full_name,
-          menu_access,
-          sub_menu_access,
-          component_access,
-          is_active,
-          created_at,
-          needs_password_reset,
-          user_roles(
-            roles(
-              id,
-              name,
-              description
+          user_id,
+          roles(
+            id, 
+            name, 
+            description,
+            role_permissions(
+              permissions(
+                id,
+                resource,
+                action,
+                description
+              )
             )
           )
         `)
-        .eq('id', authUser.user.id)
-        .single()
+        .eq('user_id', authUser.user.id)
 
-      if (fetchError) {
-        return new Response(
-          JSON.stringify({ error: fetchError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const userResponse = {
-        ...userWithRoles,
-        roles: userWithRoles.user_roles?.map(ur => ur.roles).filter(Boolean) || [],
-        role_ids: userWithRoles.user_roles?.map(ur => ur.roles?.id).filter(Boolean) || []
-      }
-
-      return new Response(
-        JSON.stringify({ user: userResponse }),
-        { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      const roles = userWithRoles?.map(ur => ur.roles).filter(Boolean) || []
+      
+      // Flatten all permissions from all roles
+      const allPermissions = roles.flatMap(role => 
+        role.role_permissions?.map(rp => rp.permissions).filter(Boolean) || []
       )
+      
+      // Remove duplicate permissions
+      const uniquePermissions = allPermissions.filter((permission, index, array) => 
+        array.findIndex(p => p.resource === permission.resource && p.action === permission.action) === index
+      )
+      
+      const userResponse = {
+        ...newUser,
+        roles,
+        role_ids: roles.map(role => role.id),
+        permissions: uniquePermissions
+      }
+
+      // Always send password reset email
+      try {
+        const { error: resetError } = await supabase.auth.admin.generateLink({
+          type: 'password_reset',
+          email: email,
+          redirectTo: `${frontendBaseUrl}/reset-password`
+        })
+        if (resetError) console.error('Failed to send password reset email:', resetError)
+      } catch (err) {
+        console.error('Error sending password reset email:', err)
+      }
+
+      return new Response(JSON.stringify({ user: userResponse }), { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // PUT update user
     if (method === 'PUT') {
-      // Check update permission for PUT requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'update')
-
       const userId = url.pathname.split('/').pop()
-      const body: UpdateUserData = await req.json()
+      const body = await req.json()
       const { full_name, role_ids, menu_access, sub_menu_access, component_access, is_active, needs_password_reset } = body
 
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: 'User ID is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+      if (!role_ids || !Array.isArray(role_ids) || role_ids.length === 0) {
+        return new Response(JSON.stringify({ error: 'At least one role must be assigned' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
-      if (!full_name || !role_ids || !Array.isArray(role_ids) || role_ids.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'Full name and at least one role are required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Validate roles exist
-      const { data: validRoles, error: roleCheckError } = await supabase
-        .from('roles')
-        .select('id')
-        .in('id', role_ids)
-
-      if (roleCheckError || !validRoles || validRoles.length !== role_ids.length) {
-        return new Response(
-          JSON.stringify({ error: 'One or more invalid role IDs provided' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Update user profile
-      const { data: updatedUser, error: userError } = await supabase
+      const { data: updatedUser, error } = await supabase
         .from('users')
-        .update({
-          full_name,
-          menu_access: menu_access || [],
-          sub_menu_access: sub_menu_access || {},
-          component_access: component_access || [],
-          is_active,
-          needs_password_reset: needs_password_reset || false
-        })
+        .update({ full_name, menu_access, sub_menu_access, component_access, is_active, needs_password_reset })
         .eq('id', userId)
         .select('*')
         .single()
 
-      if (userError) {
-        return new Response(
-          JSON.stringify({ error: userError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
       // Update user roles - delete existing and insert new ones
       const { error: deleteRolesError } = await supabase
@@ -173,14 +259,9 @@ s)
         .delete()
         .eq('user_id', userId)
 
-      if (deleteRolesError) {
-        return new Response(
-          JSON.stringify({ error: deleteRolesError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      if (deleteRolesError) return new Response(JSON.stringify({ error: deleteRolesError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-      // Insert new role assignments
+      // Insert new user roles
       const userRoleInserts = role_ids.map(role_id => ({
         user_id: userId,
         role_id
@@ -190,126 +271,79 @@ s)
         .from('user_roles')
         .insert(userRoleInserts)
 
-      if (insertRolesError) {
-        return new Response(
-          JSON.stringify({ error: insertRolesError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      if (insertRolesError) return new Response(JSON.stringify({ error: insertRolesError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-      // Fetch the updated user with roles
+      // Get the updated user with roles
       const { data: userWithRoles, error: fetchError } = await supabase
-        .from('users')
+        .from('user_roles')
         .select(`
-          id,
-          email,
-          full_name,
-          menu_access,
-          sub_menu_access,
-          component_access,
-          is_active,
-          created_at,
-          needs_password_reset,
-          user_roles(
-            roles(
-              id,
-              name,
-              description
+          user_id,
+          roles(
+            id, 
+            name, 
+            description,
+            role_permissions(
+              permissions(
+                id,
+                resource,
+                action,
+                description
+              )
             )
           )
         `)
-        .eq('id', userId)
-        .single()
+        .eq('user_id', userId)
 
-      if (fetchError) {
-        return new Response(
-          JSON.stringify({ error: fetchError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const userResponse = {
-        ...userWithRoles,
-        roles: userWithRoles.user_roles?.map(ur => ur.roles).filter(Boolean) || [],
-        role_ids: userWithRoles.user_roles?.map(ur => ur.roles?.id).filter(Boolean) || []
-      }
-
-      return new Response(
-        JSON.stringify({ user: userResponse }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      const roles = userWithRoles?.map(ur => ur.roles).filter(Boolean) || []
+      
+      // Flatten all permissions from all roles
+      const allPermissions = roles.flatMap(role => 
+        role.role_permissions?.map(rp => rp.permissions).filter(Boolean) || []
       )
+      
+      // Remove duplicate permissions
+      const uniquePermissions = allPermissions.filter((permission, index, array) => 
+        array.findIndex(p => p.resource === permission.resource && p.action === permission.action) === index
+      )
+      
+      const userResponse = {
+        ...updatedUser,
+        roles,
+        role_ids: roles.map(role => role.id),
+        permissions: uniquePermissions
+      }
+
+      // Always send password reset email if needs_password_reset is true
+      if (needs_password_reset) {
+        try {
+          const { data: currentUser } = await supabase.from('users').select('email').eq('id', userId).single()
+          if (currentUser?.email) {
+            const { error: resetError } = await supabase.auth.admin.generateLink({
+              type: 'password_reset',
+              email: currentUser.email,
+              redirectTo: `${frontendBaseUrl}/reset-password`
+            })
+            if (resetError) console.error('Failed to send password reset email:', resetError)
+          }
+        } catch (err) {
+          console.error('Error sending password reset email:', err)
+        }
+      }
+
+      return new Response(JSON.stringify({ user: userResponse }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // DELETE user
     if (method === 'DELETE') {
-      // Check delete permission for DELETE requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'users', 'delete')
-
       const userId = url.pathname.split('/').pop()
-      
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: 'User ID is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Check if user exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (checkError) {
-        return new Response(
-          JSON.stringify({ error: checkError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      if (!existingUser) {
-        return new Response(
-          JSON.stringify({ error: 'User not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Delete user from auth (this will cascade to user_roles due to foreign key constraints)
-      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(userId)
-
-      if (authDeleteError) {
-        return new Response(
-          JSON.stringify({ error: authDeleteError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Delete user from public.users table (user_roles will be cascade deleted)
-      const { error: userDeleteError } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId)
-
-      if (userDeleteError) {
-        return new Response(
-          JSON.stringify({ error: userDeleteError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      return new Response(
-        JSON.stringify({ message: 'User deleted successfully' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId!)
+      if (authError) return new Response(JSON.stringify({ error: authError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ message: 'User deleted successfully' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (error) {
     console.error('Error:', error)
-    return handleAuthError(error)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 })

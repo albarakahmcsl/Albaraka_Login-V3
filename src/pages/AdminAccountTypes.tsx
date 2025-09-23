@@ -1,16 +1,13 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
-import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign } from 'lucide-react'
-import { FileText, CheckCircle2, XCircle as XCircle2 } from 'lucide-react'
-import { accountTypesManagementApi, bankAccountsManagementApi, ApiError } from '../lib/dataFetching'
-import { useAuth } from '../contexts/AuthContext'
-import { hasPermission } from '../utils/permissions'
+import { Plus, Search, Edit, Trash2, Layers, CheckCircle, XCircle, DollarSign, Percent } from 'lucide-react'
+import { FileText } from 'lucide-react'
+import { accountTypesApi, bankAccountsApi, ApiError } from '../lib/dataFetching'
 import type { AccountType, CreateAccountTypeData, UpdateAccountTypeData, BankAccount } from '../types'
 
 export function AdminAccountTypes() {
   const queryClient = useQueryClient()
-  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -32,25 +29,23 @@ export function AdminAccountTypes() {
 
   // Fetch account types and bank accounts
   const { data: accountTypesData, isLoading: accountTypesLoading } = useQuery({
-    queryKey: queryKeys.accountTypesManagement(),
-    queryFn: accountTypesManagementApi.getAccountTypes,
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'account_types', 'view'),
+    queryKey: queryKeys.accountTypes(),
+    queryFn: accountTypesApi.getAccountTypes,
   })
 
   const { data: bankAccountsData } = useQuery({
-    queryKey: queryKeys.bankAccountsManagement(),
-    queryFn: bankAccountsManagementApi.getBankAccounts,
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'bank_accounts', 'view'),
+    queryKey: queryKeys.bankAccounts(),
+    queryFn: bankAccountsApi.getBankAccounts,
   })
 
   // Mutations for account type operations
   const createAccountTypeMutation = useMutation({
-    mutationFn: accountTypesManagementApi.createAccountType,
+    mutationFn: accountTypesApi.createAccountType,
     onSuccess: () => {
       setSuccess('Account type created successfully')
       setError(null)
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypes() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create account type')
@@ -60,13 +55,13 @@ export function AdminAccountTypes() {
 
   const updateAccountTypeMutation = useMutation({
     mutationFn: ({ accountTypeId, accountTypeData }: { accountTypeId: string; accountTypeData: UpdateAccountTypeData }) =>
-      accountTypesManagementApi.updateAccountType(accountTypeId, accountTypeData),
+      accountTypesApi.updateAccountType(accountTypeId, accountTypeData),
     onSuccess: () => {
       setSuccess('Account type updated successfully')
       setError(null)
       setShowEditModal(false)
       setSelectedAccountType(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypes() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update account type')
@@ -75,11 +70,11 @@ export function AdminAccountTypes() {
   })
 
   const deleteAccountTypeMutation = useMutation({
-    mutationFn: accountTypesManagementApi.deleteAccountType,
+    mutationFn: accountTypesApi.deleteAccountType,
     onSuccess: () => {
       setSuccess('Account type deleted successfully')
       setError(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypesManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountTypes() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete account type')
@@ -111,11 +106,6 @@ export function AdminAccountTypes() {
     (accountType.bank_account?.name && accountType.bank_account.name.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  // Permission checks
-  const canCreateAccountTypes = hasPermission(currentUser, 'account_types', 'create')
-  const canUpdateAccountTypes = hasPermission(currentUser, 'account_types', 'update')
-  const canDeleteAccountTypes = hasPermission(currentUser, 'account_types', 'delete')
-
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -128,15 +118,13 @@ export function AdminAccountTypes() {
             Configure Islamic finance account types with specific rules and properties
           </p>
         </div>
-        {canCreateAccountTypes && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Account Type
-          </button>
-        )}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Account Type
+        </button>
       </div>
 
       {error && (
@@ -180,15 +168,13 @@ export function AdminAccountTypes() {
             </p>
             {!searchTerm && (
               <div className="mt-6">
-                {canCreateAccountTypes && (
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Account Type
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Account Type
+                </button>
               </div>
             )}
           </div>
@@ -241,15 +227,8 @@ export function AdminAccountTypes() {
                             <span className="font-medium">Processing Fee:</span> MUR {accountType.processing_fee}
                           </div>
                           <div className="flex items-center">
-                            {accountType.is_dividend_eligible ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
-                            ) : (
-                              <XCircle2 className="h-4 w-4 text-red-500 mr-1" />
-                            )}
-                            <span className="font-medium">Dividend Eligible:</span> 
-                            <span className={`ml-1 ${accountType.is_dividend_eligible ? 'text-green-600' : 'text-red-600'}`}>
-                              {accountType.is_dividend_eligible ? 'Yes' : 'No'}
-                            </span>
+                            <Percent className="h-4 w-4 text-gray-400 mr-1" />
+                            <span className="font-medium">Dividend Rate:</span> {accountType.dividend_rate}%
                           </div>
                           <div className="col-span-2">
                             <div className="flex items-start">
@@ -277,27 +256,23 @@ export function AdminAccountTypes() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {canUpdateAccountTypes && (
-                        <button
-                          onClick={() => {
-                            setSelectedAccountType(accountType)
-                            setShowEditModal(true)
-                          }}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          title="Edit account type"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
-                      {canDeleteAccountTypes && (
-                        <button
-                          onClick={() => handleDeleteAccountType(accountType.id)}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          title="Delete account type"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedAccountType(accountType)
+                          setShowEditModal(true)
+                        }}
+                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        title="Edit account type"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAccountType(accountType.id)}
+                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        title="Delete account type"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -308,14 +283,14 @@ export function AdminAccountTypes() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && canCreateAccountTypes && (
+      {showCreateModal && (
         <CreateAccountTypeModal
           bankAccounts={bankAccounts}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateAccountType}
         />
       )}
-      {showEditModal && selectedAccountType && canUpdateAccountTypes && (
+      {showEditModal && selectedAccountType && (
         <EditAccountTypeModal
           accountType={selectedAccountType}
           bankAccounts={bankAccounts}
@@ -340,7 +315,6 @@ function CreateAccountTypeModal({
   onClose: () => void
   onSubmit: (accountTypeData: CreateAccountTypeData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -348,7 +322,7 @@ function CreateAccountTypeModal({
     processing_fee: 0,
     is_member_account: false,
     can_take_loan: false,
-    is_dividend_eligible: false,
+    dividend_rate: 0,
     is_active: true,
     documents_required_text: ''
   })
@@ -372,7 +346,7 @@ function CreateAccountTypeModal({
       processing_fee: formData.processing_fee,
       is_member_account: formData.is_member_account,
       can_take_loan: formData.can_take_loan,
-      is_dividend_eligible: formData.is_dividend_eligible,
+      dividend_rate: formData.dividend_rate,
       is_active: formData.is_active,
       documents_required: documentsArray
     })
@@ -440,6 +414,19 @@ function CreateAccountTypeModal({
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Dividend Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.dividend_rate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dividend_rate: parseFloat(e.target.value) || 0 }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                  placeholder="0.00"
+                />
+              </div>
             </div>
 
             <div>
@@ -458,20 +445,6 @@ function CreateAccountTypeModal({
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_dividend_eligible"
-                  checked={formData.is_dividend_eligible}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_dividend_eligible: e.target.checked }))}
-                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <label htmlFor="is_dividend_eligible" className="ml-2 text-sm text-gray-700">
-                  <span className="font-medium">Eligible for Dividend</span>
-                  <span className="text-gray-500 block">Account holders can receive dividend payments</span>
-                </label>
-              </div>
-
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -525,7 +498,7 @@ function CreateAccountTypeModal({
               </button>
               <button
                 type="submit"
-                disabled={!formData.name.trim() || !formData.bank_account_id || !hasPermission(currentUser, 'account_types', 'create')}
+                disabled={!formData.name.trim() || !formData.bank_account_id}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Account Type
@@ -550,7 +523,6 @@ function EditAccountTypeModal({
   onClose: () => void
   onSubmit: (accountTypeData: UpdateAccountTypeData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: accountType.name,
     description: accountType.description || '',
@@ -558,7 +530,7 @@ function EditAccountTypeModal({
     processing_fee: accountType.processing_fee,
     is_member_account: accountType.is_member_account,
     can_take_loan: accountType.can_take_loan,
-    is_dividend_eligible: accountType.is_dividend_eligible,
+    dividend_rate: accountType.dividend_rate,
     is_active: accountType.is_active,
     documents_required_text: (accountType.documents_required || []).join(', ')
   })
@@ -582,7 +554,7 @@ function EditAccountTypeModal({
       processing_fee: formData.processing_fee,
       is_member_account: formData.is_member_account,
       can_take_loan: formData.can_take_loan,
-      is_dividend_eligible: formData.is_dividend_eligible,
+      dividend_rate: formData.dividend_rate,
       is_active: formData.is_active,
       documents_required: documentsArray
     })
@@ -646,6 +618,19 @@ function EditAccountTypeModal({
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Dividend Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.dividend_rate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dividend_rate: parseFloat(e.target.value) || 0 }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
             </div>
 
             <div>
@@ -664,20 +649,6 @@ function EditAccountTypeModal({
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="edit_is_dividend_eligible"
-                  checked={formData.is_dividend_eligible}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_dividend_eligible: e.target.checked }))}
-                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <label htmlFor="edit_is_dividend_eligible" className="ml-2 text-sm text-gray-700">
-                  <span className="font-medium">Eligible for Dividend</span>
-                  <span className="text-gray-500 block">Account holders can receive dividend payments</span>
-                </label>
-              </div>
-
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -731,7 +702,7 @@ function EditAccountTypeModal({
               </button>
               <button
                 type="submit"
-                disabled={!formData.name.trim() || !formData.bank_account_id || !hasPermission(currentUser, 'account_types', 'update')}
+                disabled={!formData.name.trim() || !formData.bank_account_id}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Update Account Type

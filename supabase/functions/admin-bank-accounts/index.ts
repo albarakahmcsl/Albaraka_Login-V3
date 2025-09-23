@@ -1,5 +1,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { authenticateUser, corsHeaders, handleAuthError } from '../utils/authChecks.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
 
 interface BankAccount {
   id: string
@@ -24,14 +29,48 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Authenticate the request
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+
+    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin')) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient permissions' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const url = new URL(req.url)
     const method = req.method
 
     // GET bank accounts
     if (method === 'GET' && url.pathname.endsWith('/admin-bank-accounts')) {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const { data: bankAccountsData, error: bankAccountsError } = await supabase
         .from('bank_accounts')
         .select('*')
@@ -52,9 +91,6 @@ Deno.serve(async (req) => {
 
     // POST create bank account
     if (method === 'POST' && url.pathname.endsWith('/admin-bank-accounts')) {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const body: CreateBankAccountData = await req.json()
       const { name, account_number } = body
 
@@ -122,9 +158,6 @@ Deno.serve(async (req) => {
 
     // PUT update bank account
     if (method === 'PUT') {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const bankAccountId = url.pathname.split('/').pop()
       const body: UpdateBankAccountData = await req.json()
       const { name, account_number } = body
@@ -213,9 +246,6 @@ Deno.serve(async (req) => {
 
     // DELETE bank account
     if (method === 'DELETE') {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const bankAccountId = url.pathname.split('/').pop()
       
       if (!bankAccountId) {
@@ -250,6 +280,9 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in admin-bank-accounts function:', error)
-    return handleAuthError(error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })

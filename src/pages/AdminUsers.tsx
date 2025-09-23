@@ -3,17 +3,13 @@ import { useLoaderData } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Shield } from 'lucide-react'
-import { usersManagementApi, rolesManagementApi, ApiError } from '../lib/dataFetching'
+import { adminUsersApi, adminRolesApi, ApiError } from '../lib/dataFetching'
 import { generateTemporaryPassword } from '../utils/validation'
-import { ConfirmationModal } from '../components/ConfirmationModal'
-import { useAuth } from '../contexts/AuthContext'
-import { hasPermission } from '../utils/permissions'
 import type { User, Role, CreateUserData, UpdateUserData } from '../types/auth'
 
 export function AdminUsers() {
   const queryClient = useQueryClient()
   const loaderData = useLoaderData() as { users: User[]; roles: Role[] }
-  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -21,32 +17,27 @@ export function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
-  const [userToDeleteId, setUserToDeleteId] = useState<string | null>(null)
-  const [userToDeleteName, setUserToDeleteName] = useState<string>('')
 
   // Use React Query with initial data from loader
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: queryKeys.usersManagement(),
-    queryFn: usersManagementApi.getUsers,
+    queryKey: queryKeys.adminUsers(),
+    queryFn: adminUsersApi.getUsers,
     initialData: { users: loaderData.users },
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'users', 'view'),
   })
 
   const { data: roles } = useQuery({
-    queryKey: queryKeys.rolesManagement(),
-    queryFn: rolesManagementApi.getRoles,
+    queryKey: queryKeys.adminRoles(),
+    queryFn: adminRolesApi.getRoles,
     initialData: loaderData.roles,
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'roles', 'view'),
   })
 
   // Mutations for user operations
   const createUserMutation = useMutation({
-    mutationFn: usersManagementApi.createUser,
+    mutationFn: adminUsersApi.createUser,
     onSuccess: () => {
       setSuccess('User created successfully')
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create user')
@@ -55,12 +46,12 @@ export function AdminUsers() {
 
   const updateUserMutation = useMutation({
     mutationFn: ({ userId, userData }: { userId: string; userData: UpdateUserData }) =>
-      usersManagementApi.updateUser(userId, userData),
+      adminUsersApi.updateUser(userId, userData),
     onSuccess: () => {
       setSuccess('User updated successfully')
       setShowEditModal(false)
       setSelectedUser(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update user')
@@ -68,30 +59,13 @@ export function AdminUsers() {
   })
 
   const deleteUserMutation = useMutation({
-    mutationFn: usersManagementApi.deleteUser,
+    mutationFn: adminUsersApi.deleteUser,
     onSuccess: () => {
       setSuccess('User deleted successfully')
-      // Optimistically update the UI by removing the deleted user from the cache
-      queryClient.setQueryData(queryKeys.usersManagement(), (oldData: { users: User[] } | undefined) => {
-        if (!oldData || !userToDeleteId) return oldData
-        return {
-          ...oldData,
-          users: oldData.users.filter(user => user.id !== userToDeleteId)
-        }
-      })
-      // Reset delete modal state
-      setShowDeleteConfirmModal(false)
-      setUserToDeleteId(null)
-      setUserToDeleteName('')
-      // Still invalidate to ensure data consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete user')
-      // Reset delete modal state on error
-      setShowDeleteConfirmModal(false)
-      setUserToDeleteId(null)
-      setUserToDeleteName('')
     },
   })
 
@@ -105,17 +79,8 @@ export function AdminUsers() {
   }
 
   const handleDeleteUser = (userId: string) => {
-    const user = users.find(u => u.id === userId)
-    if (!user) return
-    
-    setUserToDeleteId(userId)
-    setUserToDeleteName(user.full_name || user.email)
-    setShowDeleteConfirmModal(true)
-  }
-
-  const confirmDeleteUser = () => {
-    if (!userToDeleteId) return
-    deleteUserMutation.mutate(userToDeleteId)
+    if (!confirm('Are you sure you want to delete this user?')) return
+    deleteUserMutation.mutate(userId)
   }
 
   const users = usersData?.users || []
@@ -126,11 +91,6 @@ export function AdminUsers() {
     user.full_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Permission checks
-  const canCreateUsers = hasPermission(currentUser, 'users', 'create')
-  const canUpdateUsers = hasPermission(currentUser, 'users', 'update')
-  const canDeleteUsers = hasPermission(currentUser, 'users', 'delete')
-
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -140,15 +100,13 @@ export function AdminUsers() {
             Manage user accounts, roles, and permissions
           </p>
         </div>
-        {canCreateUsers && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </button>
-        )}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add User
+        </button>
       </div>
 
       {error && (
@@ -221,28 +179,21 @@ export function AdminUsers() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {canUpdateUsers && (
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user)
-                          setShowEditModal(true)
-                        }}
-                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        title="Edit user"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    )}
-                    {canDeleteUsers && (
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        disabled={deleteUserMutation.isPending}
-                        title="Delete user"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setSelectedUser(user)
+                        setShowEditModal(true)
+                      }}
+                      className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(user.id)}
+                      className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </li>
@@ -252,14 +203,14 @@ export function AdminUsers() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && canCreateUsers && (
+      {showCreateModal && (
         <CreateUserModal
           roles={roles || []}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateUser}
         />
       )}
-      {showEditModal && selectedUser && canUpdateUsers && (
+      {showEditModal && selectedUser && (
         <EditUserModal
           user={selectedUser}
           roles={roles || []}
@@ -270,22 +221,6 @@ export function AdminUsers() {
           onSubmit={handleUpdateUser}
         />
       )}
-      
-      {/* Delete Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showDeleteConfirmModal}
-        onClose={() => {
-          setShowDeleteConfirmModal(false)
-          setUserToDeleteId(null)
-          setUserToDeleteName('')
-        }}
-        onConfirm={confirmDeleteUser}
-        title="Delete User"
-        message={`Are you sure you want to delete "${userToDeleteName}"? This action cannot be undone and will permanently remove the user from the system.`}
-        confirmText="Delete User"
-        cancelText="Cancel"
-        variant="danger"
-      />
     </div>
   )
 }
@@ -300,7 +235,6 @@ function CreateUserModal({
   onClose: () => void
   onSubmit: (userData: CreateUserData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: generateTemporaryPassword(),
@@ -313,17 +247,19 @@ function CreateUserModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.role_ids[0]) {
-      alert('Please select a role')
+    if (formData.role_ids.length === 0) {
+      alert('Please select at least one role')
       return
     }
     onSubmit(formData)
   }
 
-  const handleRoleChange = (roleId: string) => {
+  const handleRoleChange = (roleId: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      role_ids: roleId ? [roleId] : []
+      role_ids: checked 
+        ? [...new Set([...prev.role_ids, roleId])]
+        : prev.role_ids.filter(id => id !== roleId)
     }))
   }
 
@@ -367,20 +303,20 @@ function CreateUserModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
-                required
-                value={formData.role_ids[0] || ''}
-                onChange={(e) => handleRoleChange(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="">Select a role</option>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
                 {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
+                  <label key={role.id} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.role_ids.includes(role.id)}
+                      onChange={(e) => handleRoleChange(role.id, e.target.checked)}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">{role.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -393,7 +329,6 @@ function CreateUserModal({
               </button>
               <button
                 type="submit"
-                disabled={!hasPermission(currentUser, 'users', 'create')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Create User
@@ -418,7 +353,6 @@ function EditUserModal({
   onClose: () => void
   onSubmit: (userData: UpdateUserData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     full_name: user.full_name,
     role_ids: user.role_ids || [],
@@ -431,17 +365,19 @@ function EditUserModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.role_ids[0]) {
-      alert('Please select a role')
+    if (formData.role_ids.length === 0) {
+      alert('Please select at least one role')
       return
     }
     onSubmit(formData)
   }
 
-  const handleRoleChange = (roleId: string) => {
+  const handleRoleChange = (roleId: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      role_ids: roleId ? [roleId] : []
+      role_ids: checked 
+        ? [...new Set([...prev.role_ids, roleId])]
+        : prev.role_ids.filter(id => id !== roleId)
     }))
   }
 
@@ -473,20 +409,20 @@ function EditUserModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
-                required
-                value={formData.role_ids[0] || ''}
-                onChange={(e) => handleRoleChange(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="">Select a role</option>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
                 {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
+                  <label key={role.id} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.role_ids.includes(role.id)}
+                      onChange={(e) => handleRoleChange(role.id, e.target.checked)}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">{role.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div className="flex items-center">
@@ -523,7 +459,6 @@ function EditUserModal({
               </button>
               <button
                 type="submit"
-                disabled={!hasPermission(currentUser, 'users', 'update')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Update User

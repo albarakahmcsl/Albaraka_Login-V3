@@ -2,14 +2,11 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Shield, Users } from 'lucide-react'
-import { rolesManagementApi, permissionsManagementApi, ApiError } from '../lib/dataFetching'
-import { useAuth } from '../contexts/AuthContext'
-import { hasPermission } from '../utils/permissions'
+import { adminRolesApi, adminPermissionsApi, ApiError } from '../lib/dataFetching'
 import type { Role, Permission, CreateRoleData, UpdateRoleData } from '../types/auth'
 
 export function AdminRoles() {
   const queryClient = useQueryClient()
-  const { user: currentUser, loading: authLoading } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -20,25 +17,23 @@ export function AdminRoles() {
 
   // Fetch roles and permissions
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
-    queryKey: queryKeys.rolesManagement(),
-    queryFn: rolesManagementApi.getRoles,
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'roles', 'view'),
+    queryKey: queryKeys.adminRoles(),
+    queryFn: adminRolesApi.getRoles,
   })
 
   const { data: permissions = [] } = useQuery({
-    queryKey: queryKeys.permissionsManagement(),
-    queryFn: permissionsManagementApi.getPermissions,
-    enabled: !authLoading && !!currentUser && hasPermission(currentUser, 'permissions', 'view'),
+    queryKey: queryKeys.adminPermissions(),
+    queryFn: adminPermissionsApi.getPermissions,
   })
 
   // Mutations for role operations
   const createRoleMutation = useMutation({
-    mutationFn: rolesManagementApi.createRole,
+    mutationFn: adminRolesApi.createRole,
     onSuccess: () => {
       setSuccess('Role created successfully')
       setShowCreateModal(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create role')
@@ -47,13 +42,13 @@ export function AdminRoles() {
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ roleId, roleData }: { roleId: string; roleData: UpdateRoleData }) =>
-      rolesManagementApi.updateRole(roleId, roleData),
+      adminRolesApi.updateRole(roleId, roleData),
     onSuccess: () => {
       setSuccess('Role updated successfully')
       setShowEditModal(false)
       setSelectedRole(null)
-      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update role')
@@ -61,11 +56,11 @@ export function AdminRoles() {
   })
 
   const deleteRoleMutation = useMutation({
-    mutationFn: rolesManagementApi.deleteRole,
+    mutationFn: adminRolesApi.deleteRole,
     onSuccess: () => {
       setSuccess('Role deleted successfully')
-      queryClient.invalidateQueries({ queryKey: queryKeys.rolesManagement() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.usersManagement() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() })
     },
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete role')
@@ -93,11 +88,6 @@ export function AdminRoles() {
     (role.description && role.description.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  // Permission checks
-  const canCreateRoles = hasPermission(currentUser, 'roles', 'create')
-  const canUpdateRoles = hasPermission(currentUser, 'roles', 'update')
-  const canDeleteRoles = hasPermission(currentUser, 'roles', 'delete')
-
   return (
     <div className="space-y-6 pt-24">
       <div className="flex items-center justify-between">
@@ -110,15 +100,13 @@ export function AdminRoles() {
             Create and manage system roles with granular permissions
           </p>
         </div>
-        {canCreateRoles && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Role
-          </button>
-        )}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Role
+        </button>
       </div>
 
       {error && (
@@ -178,23 +166,19 @@ export function AdminRoles() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {canUpdateRoles && (
-                        <button
-                          onClick={() => {
-                            setSelectedRole(role)
-                            setShowEditModal(true)
-                          }}
-                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          title="Edit role"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
-                      {canDeleteRoles && role.name !== 'admin' && (
+                      <button
+                        onClick={() => {
+                          setSelectedRole(role)
+                          setShowEditModal(true)
+                        }}
+                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      {role.name !== 'admin' && (
                         <button
                           onClick={() => handleDeleteRole(role.id)}
                           className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          title="Delete role"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -225,14 +209,14 @@ export function AdminRoles() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && canCreateRoles && (
+      {showCreateModal && (
         <CreateRoleModal
           permissions={permissions}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateRole}
         />
       )}
-      {showEditModal && selectedRole && canUpdateRoles && (
+      {showEditModal && selectedRole && (
         <EditRoleModal
           role={selectedRole}
           permissions={permissions}
@@ -257,7 +241,6 @@ function CreateRoleModal({
   onClose: () => void
   onSubmit: (roleData: CreateRoleData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -355,7 +338,6 @@ function CreateRoleModal({
               </button>
               <button
                 type="submit"
-                disabled={!hasPermission(currentUser, 'roles', 'create')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Create Role
@@ -380,7 +362,6 @@ function EditRoleModal({
   onClose: () => void
   onSubmit: (roleData: UpdateRoleData) => void
 }) {
-  const { user: currentUser } = useAuth()
   const [formData, setFormData] = useState({
     name: role.name,
     description: role.description || '',
@@ -480,7 +461,6 @@ function EditRoleModal({
               </button>
               <button
                 type="submit"
-                disabled={!hasPermission(currentUser, 'roles', 'update')}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
               >
                 Update Role

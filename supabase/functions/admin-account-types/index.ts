@@ -1,5 +1,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { authenticateUser, corsHeaders, handleAuthError } from '../utils/authChecks.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
 
 interface AccountType {
   id: string
@@ -9,7 +14,7 @@ interface AccountType {
   processing_fee: number
   is_member_account: boolean
   can_take_loan: boolean
-  is_dividend_eligible: boolean
+  dividend_rate: number
   is_active: boolean
   documents_required: string[]
   created_at: string
@@ -28,7 +33,7 @@ interface CreateAccountTypeData {
   processing_fee?: number
   is_member_account?: boolean
   can_take_loan?: boolean
-  is_dividend_eligible?: boolean
+  dividend_rate?: number
   is_active?: boolean
   documents_required?: string[]
 }
@@ -40,7 +45,7 @@ interface UpdateAccountTypeData {
   processing_fee?: number
   is_member_account?: boolean
   can_take_loan?: boolean
-  is_dividend_eligible?: boolean
+  dividend_rate?: number
   is_active?: boolean
   documents_required?: string[]
 }
@@ -51,14 +56,48 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Authenticate the request
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+
+    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin')) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient permissions' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const url = new URL(req.url)
     const method = req.method
 
     // GET account types
     if (method === 'GET' && url.pathname.endsWith('/admin-account-types')) {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const { data: accountTypesData, error: accountTypesError } = await supabase
         .from('account_types')
         .select(`
@@ -86,9 +125,6 @@ Deno.serve(async (req) => {
 
     // POST create account type
     if (method === 'POST' && url.pathname.endsWith('/admin-account-types')) {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const body: CreateAccountTypeData = await req.json()
       const { 
         name, 
@@ -97,7 +133,7 @@ Deno.serve(async (req) => {
         processing_fee = 0.00,
         is_member_account = false,
         can_take_loan = false,
-        is_dividend_eligible = false,
+        dividend_rate = 0.00,
         is_active = true,
         documents_required = []
       } = body
@@ -118,9 +154,9 @@ Deno.serve(async (req) => {
       }
 
       // Validate numeric fields
-      if (processing_fee < 0) {
+      if (processing_fee < 0 || dividend_rate < 0 || dividend_rate > 100) {
         return new Response(
-          JSON.stringify({ error: 'Processing fee must be non-negative' }),
+          JSON.stringify({ error: 'Processing fee must be non-negative and dividend rate must be between 0-100%' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -179,7 +215,7 @@ Deno.serve(async (req) => {
           processing_fee,
           is_member_account,
           can_take_loan,
-          is_dividend_eligible,
+          dividend_rate,
           is_active,
           documents_required: documents_required || []
         })
@@ -208,9 +244,6 @@ Deno.serve(async (req) => {
 
     // PUT update account type
     if (method === 'PUT') {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const accountTypeId = url.pathname.split('/').pop()
       const body: UpdateAccountTypeData = await req.json()
       const { 
@@ -220,7 +253,7 @@ Deno.serve(async (req) => {
         processing_fee,
         is_member_account,
         can_take_loan,
-        is_dividend_eligible,
+        dividend_rate,
         is_active,
         documents_required
       } = body
@@ -300,8 +333,14 @@ Deno.serve(async (req) => {
         updateData.processing_fee = processing_fee
       }
 
-      if (is_dividend_eligible !== undefined) {
-        updateData.is_dividend_eligible = is_dividend_eligible
+      if (dividend_rate !== undefined) {
+        if (dividend_rate < 0 || dividend_rate > 100) {
+          return new Response(
+            JSON.stringify({ error: 'Dividend rate must be between 0-100%' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        updateData.dividend_rate = dividend_rate
       }
 
       if (is_member_account !== undefined) {
@@ -357,9 +396,6 @@ Deno.serve(async (req) => {
 
     // DELETE account type
     if (method === 'DELETE') {
-      // Only check if user is logged in
-      const { user, supabase } = await authenticateUser(req)
-
       const accountTypeId = url.pathname.split('/').pop()
       
       if (!accountTypeId) {
@@ -397,6 +433,9 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in admin-account-types function:', error)
-    return handleAuthError(error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })

@@ -21,7 +21,7 @@ async function handleResponse(response: Response) {
   return data
 }
 
-// User Profile Data Fetchings
+// User Profile Data Fetching
 export const userProfileApi = {
   async fetchUserProfile(userId: string): Promise<any | null> {
     console.log('[dataFetching] fetchUserProfile START - userId:', userId)
@@ -42,12 +42,12 @@ export const userProfileApi = {
           created_at,
           updated_at,
           user_roles(
-            roles(
+            roles!inner(
               id, 
               name, 
               description,
               role_permissions(
-                permissions(
+                permissions!inner(
                   id,
                   resource,
                   action,
@@ -58,7 +58,7 @@ export const userProfileApi = {
           )
         `)
         .eq('id', userId)
-        .maybeSingle()
+        .single()
 
       if (error) {
         console.error('[dataFetching] fetchUserProfile ERROR:', error)
@@ -67,7 +67,7 @@ export const userProfileApi = {
       
       if (!data) {
         console.log('[dataFetching] fetchUserProfile - No profile found for user:', userId)
-        return null
+        throw new Error('User profile not found')
       }
       
       // Transform the data to match our User interface
@@ -188,10 +188,10 @@ export const dashboardApi = {
   }
 }
 
-// Users Management API
-export const usersManagementApi = {
+// Admin Users API
+export const adminUsersApi = {
   async getUsers(): Promise<{ users: User[] }> {
-    console.log('[dataFetching] usersManagementApi.getUsers START')
+    console.log('[dataFetching] adminUsersApi.getUsers START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-users`, {
@@ -200,12 +200,12 @@ export const usersManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] usersManagementApi.getUsers SUCCESS')
+    console.log('[dataFetching] adminUsersApi.getUsers SUCCESS')
     return result
   },
 
   async createUser(userData: CreateUserData): Promise<{ user: User }> {
-    console.log('[dataFetching] usersManagementApi.createUser START')
+    console.log('[dataFetching] adminUsersApi.createUser START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-users`, {
@@ -215,12 +215,12 @@ export const usersManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] usersManagementApi.createUser SUCCESS')
+    console.log('[dataFetching] adminUsersApi.createUser SUCCESS')
     return result
   },
 
   async updateUser(userId: string, userData: UpdateUserData): Promise<{ user: User }> {
-    console.log('[dataFetching] usersManagementApi.updateUser START')
+    console.log('[dataFetching] adminUsersApi.updateUser START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-users/${userId}`, {
@@ -230,12 +230,12 @@ export const usersManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] usersManagementApi.updateUser SUCCESS')
+    console.log('[dataFetching] adminUsersApi.updateUser SUCCESS')
     return result
   },
 
   async deleteUser(userId: string): Promise<{ message: string }> {
-    console.log('[dataFetching] usersManagementApi.deleteUser START')
+    console.log('[dataFetching] adminUsersApi.deleteUser START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-users/${userId}`, {
@@ -244,7 +244,7 @@ export const usersManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] usersManagementApi.deleteUser SUCCESS')
+    console.log('[dataFetching] adminUsersApi.deleteUser SUCCESS')
     return result
   }
 }
@@ -287,10 +287,10 @@ export const rolesApi = {
   }
 }
 
-// Roles Management API
-export const rolesManagementApi = {
+// Admin Roles API
+export const adminRolesApi = {
   async getRoles(): Promise<Role[]> {
-    console.log('[dataFetching] rolesManagementApi.getRoles START')
+    console.log('[dataFetching] adminRolesApi.getRoles START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-roles`, {
@@ -299,12 +299,12 @@ export const rolesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] rolesManagementApi.getRoles SUCCESS')
+    console.log('[dataFetching] adminRolesApi.getRoles SUCCESS')
     return result.roles
   },
 
   async createRole(roleData: CreateRoleData): Promise<{ role: Role }> {
-    console.log('[dataFetching] rolesManagementApi.createRole START')
+    console.log('[dataFetching] adminRolesApi.createRole START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-roles`, {
@@ -314,12 +314,12 @@ export const rolesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] rolesManagementApi.createRole SUCCESS')
+    console.log('[dataFetching] adminRolesApi.createRole SUCCESS')
     return result
   },
 
   async updateRole(roleId: string, roleData: UpdateRoleData): Promise<{ role: Role }> {
-    console.log('[dataFetching] rolesManagementApi.updateRole START')
+    console.log('[dataFetching] adminRolesApi.updateRole START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-roles/${roleId}`, {
@@ -329,12 +329,12 @@ export const rolesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] rolesManagementApi.updateRole SUCCESS')
+    console.log('[dataFetching] adminRolesApi.updateRole SUCCESS')
     return result
   },
 
   async deleteRole(roleId: string): Promise<{ message: string }> {
-    console.log('[dataFetching] rolesManagementApi.deleteRole START')
+    console.log('[dataFetching] adminRolesApi.deleteRole START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-roles/${roleId}`, {
@@ -343,15 +343,15 @@ export const rolesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] rolesManagementApi.deleteRole SUCCESS')
+    console.log('[dataFetching] adminRolesApi.deleteRole SUCCESS')
     return result
   }
 }
 
-// Permissions Management API
-export const permissionsManagementApi = {
+// Admin Permissions API
+export const adminPermissionsApi = {
   async getPermissions(): Promise<Permission[]> {
-    console.log('[dataFetching] permissionsManagementApi.getPermissions START')
+    console.log('[dataFetching] adminPermissionsApi.getPermissions START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-permissions`, {
@@ -360,12 +360,12 @@ export const permissionsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] permissionsManagementApi.getPermissions SUCCESS')
+    console.log('[dataFetching] adminPermissionsApi.getPermissions SUCCESS')
     return result.permissions
   },
 
   async createPermission(permissionData: CreatePermissionData): Promise<{ permission: Permission }> {
-    console.log('[dataFetching] permissionsManagementApi.createPermission START')
+    console.log('[dataFetching] adminPermissionsApi.createPermission START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-permissions`, {
@@ -375,12 +375,12 @@ export const permissionsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] permissionsManagementApi.createPermission SUCCESS')
+    console.log('[dataFetching] adminPermissionsApi.createPermission SUCCESS')
     return result
   },
 
   async updatePermission(permissionId: string, permissionData: UpdatePermissionData): Promise<{ permission: Permission }> {
-    console.log('[dataFetching] permissionsManagementApi.updatePermission START')
+    console.log('[dataFetching] adminPermissionsApi.updatePermission START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-permissions/${permissionId}`, {
@@ -390,12 +390,12 @@ export const permissionsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] permissionsManagementApi.updatePermission SUCCESS')
+    console.log('[dataFetching] adminPermissionsApi.updatePermission SUCCESS')
     return result
   },
 
   async deletePermission(permissionId: string): Promise<{ message: string }> {
-    console.log('[dataFetching] permissionsManagementApi.deletePermission START')
+    console.log('[dataFetching] adminPermissionsApi.deletePermission START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-permissions/${permissionId}`, {
@@ -404,7 +404,7 @@ export const permissionsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] permissionsManagementApi.deletePermission SUCCESS')
+    console.log('[dataFetching] adminPermissionsApi.deletePermission SUCCESS')
     return result
   }
 }
@@ -453,10 +453,10 @@ export const authApi = {
   }
 }
 
-// Bank Accounts Management API
-export const bankAccountsManagementApi = {
+// Bank Accounts API
+export const bankAccountsApi = {
   async getBankAccounts(): Promise<{ bank_accounts: BankAccount[] }> {
-    console.log('[dataFetching] bankAccountsManagementApi.getBankAccounts START')
+    console.log('[dataFetching] bankAccountsApi.getBankAccounts START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-bank-accounts`, {
@@ -465,12 +465,12 @@ export const bankAccountsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] bankAccountsManagementApi.getBankAccounts SUCCESS')
+    console.log('[dataFetching] bankAccountsApi.getBankAccounts SUCCESS')
     return result
   },
 
   async createBankAccount(bankAccountData: CreateBankAccountData): Promise<{ bank_account: BankAccount }> {
-    console.log('[dataFetching] bankAccountsManagementApi.createBankAccount START')
+    console.log('[dataFetching] bankAccountsApi.createBankAccount START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-bank-accounts`, {
@@ -480,12 +480,12 @@ export const bankAccountsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] bankAccountsManagementApi.createBankAccount SUCCESS')
+    console.log('[dataFetching] bankAccountsApi.createBankAccount SUCCESS')
     return result
   },
 
   async updateBankAccount(bankAccountId: string, bankAccountData: UpdateBankAccountData): Promise<{ bank_account: BankAccount }> {
-    console.log('[dataFetching] bankAccountsManagementApi.updateBankAccount START')
+    console.log('[dataFetching] bankAccountsApi.updateBankAccount START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-bank-accounts/${bankAccountId}`, {
@@ -495,12 +495,12 @@ export const bankAccountsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] bankAccountsManagementApi.updateBankAccount SUCCESS')
+    console.log('[dataFetching] bankAccountsApi.updateBankAccount SUCCESS')
     return result
   },
 
   async deleteBankAccount(bankAccountId: string): Promise<{ message: string }> {
-    console.log('[dataFetching] bankAccountsManagementApi.deleteBankAccount START')
+    console.log('[dataFetching] bankAccountsApi.deleteBankAccount START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-bank-accounts/${bankAccountId}`, {
@@ -509,15 +509,15 @@ export const bankAccountsManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] bankAccountsManagementApi.deleteBankAccount SUCCESS')
+    console.log('[dataFetching] bankAccountsApi.deleteBankAccount SUCCESS')
     return result
   }
 }
 
-// Account Types Management API
-export const accountTypesManagementApi = {
+// Account Types API
+export const accountTypesApi = {
   async getAccountTypes(): Promise<{ account_types: AccountType[] }> {
-    console.log('[dataFetching] accountTypesManagementApi.getAccountTypes START')
+    console.log('[dataFetching] accountTypesApi.getAccountTypes START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-account-types`, {
@@ -526,12 +526,12 @@ export const accountTypesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] accountTypesManagementApi.getAccountTypes SUCCESS')
+    console.log('[dataFetching] accountTypesApi.getAccountTypes SUCCESS')
     return result
   },
 
   async createAccountType(accountTypeData: CreateAccountTypeData): Promise<{ account_type: AccountType }> {
-    console.log('[dataFetching] accountTypesManagementApi.createAccountType START')
+    console.log('[dataFetching] accountTypesApi.createAccountType START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-account-types`, {
@@ -541,12 +541,12 @@ export const accountTypesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] accountTypesManagementApi.createAccountType SUCCESS')
+    console.log('[dataFetching] accountTypesApi.createAccountType SUCCESS')
     return result
   },
 
   async updateAccountType(accountTypeId: string, accountTypeData: UpdateAccountTypeData): Promise<{ account_type: AccountType }> {
-    console.log('[dataFetching] accountTypesManagementApi.updateAccountType START')
+    console.log('[dataFetching] accountTypesApi.updateAccountType START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-account-types/${accountTypeId}`, {
@@ -556,12 +556,12 @@ export const accountTypesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] accountTypesManagementApi.updateAccountType SUCCESS')
+    console.log('[dataFetching] accountTypesApi.updateAccountType SUCCESS')
     return result
   },
 
   async deleteAccountType(accountTypeId: string): Promise<{ message: string }> {
-    console.log('[dataFetching] accountTypesManagementApi.deleteAccountType START')
+    console.log('[dataFetching] accountTypesApi.deleteAccountType START')
     
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}/admin-account-types/${accountTypeId}`, {
@@ -570,7 +570,7 @@ export const accountTypesManagementApi = {
     })
     
     const result = await handleResponse(response)
-    console.log('[dataFetching] accountTypesManagementApi.deleteAccountType SUCCESS')
+    console.log('[dataFetching] accountTypesApi.deleteAccountType SUCCESS')
     return result
   }
 }

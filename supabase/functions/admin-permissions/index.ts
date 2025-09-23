@@ -1,5 +1,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { authenticateAndCheckPermission, corsHeaders, handleAuthError } from '../utils/authChecks.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
 
 interface Permission {
   id: string
@@ -27,14 +32,48 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Authenticate the request
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+
+    if (userError || !userData || !userData.some(ur => ur.roles?.name === 'admin')) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient permissions' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const url = new URL(req.url)
     const method = req.method
 
     // GET permissions
     if (method === 'GET' && url.pathname.endsWith('/admin-permissions')) {
-      // Check view permission for GET requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'view')
-
       const { data: permissionsData, error: permissionsError } = await supabase
         .from('permissions')
         .select('*')
@@ -56,9 +95,6 @@ Deno.serve(async (req) => {
 
     // POST create permission
     if (method === 'POST' && url.pathname.endsWith('/admin-permissions')) {
-      // Check create permission for POST requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'create')
-
       const body: CreatePermissionData = await req.json()
       const { resource, action, description } = body
 
@@ -117,9 +153,6 @@ Deno.serve(async (req) => {
 
     // PUT update permission
     if (method === 'PUT') {
-      // Check update permission for PUT requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'update')
-
       const permissionId = url.pathname.split('/').pop()
       const body: UpdatePermissionData = await req.json()
       const { resource, action, description } = body
@@ -181,9 +214,6 @@ Deno.serve(async (req) => {
 
     // DELETE permission
     if (method === 'DELETE') {
-      // Check delete permission for DELETE requests
-      const { user, supabase } = await authenticateAndCheckPermission(req, 'permissions', 'delete')
-
       const permissionId = url.pathname.split('/').pop()
       
       // Check if permission is being used by any roles
@@ -233,6 +263,9 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in admin-permissions function:', error)
-    return handleAuthError(error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })

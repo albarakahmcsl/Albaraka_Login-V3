@@ -2,7 +2,6 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPermission, isAdmin } from '../utils/permissions'
-import { AccessDenied } from './AccessDenied'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -11,9 +10,9 @@ interface ProtectedRouteProps {
   redirectTo?: string
 }
 
-export function ProtectedRoute({
-  children,
-  requireAdmin = false,
+export function ProtectedRoute({ 
+  children, 
+  requireAdmin = false, 
   requiredPermission,
   redirectTo = '/login'
 }: ProtectedRouteProps) {
@@ -22,7 +21,7 @@ export function ProtectedRoute({
 
   console.log('[ProtectedRoute] Render - pathname:', location.pathname, 'user:', !!user, 'loading:', loading)
 
-  // Only show loading spinner if still loading and no user info yet
+  // Only show loading spinner if we're actually loading (no cached data available)
   if (loading && !user) {
     console.log('[ProtectedRoute] Showing loading spinner')
     return (
@@ -40,7 +39,7 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} state={{ from: location }} replace />
   }
 
-  // Redirect to force-password-change only if user actually needs it and not already on that page
+  // Check if user needs to change their password
   if (user.needs_password_reset && location.pathname !== '/force-password-change') {
     console.log('[ProtectedRoute] User needs password reset, redirecting')
     return <Navigate to="/force-password-change" replace />
@@ -60,12 +59,19 @@ export function ProtectedRoute({
 
   if (requireAdmin && !isAdmin(user)) {
     console.log('[ProtectedRoute] Admin required but user is not admin, redirecting to dashboard')
-    return <AccessDenied message="You need administrator privileges to access this page." />
+    return <Navigate to="/dashboard" replace />
   }
 
   if (requiredPermission && !hasPermission(user, requiredPermission.resource, requiredPermission.action)) {
     console.log('[ProtectedRoute] Required permission not met:', requiredPermission)
-    return <AccessDenied message={`You need permission to ${requiredPermission.action} ${requiredPermission.resource} to access this page.`} />
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600">You don't have permission to access this resource.</p>
+        </div>
+      </div>
+    )
   }
 
   console.log('[ProtectedRoute] All checks passed, rendering children')

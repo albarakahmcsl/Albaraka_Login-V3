@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { queryClient, queryKeys } from './lib/queryClient'
-import { dashboardApi, usersManagementApi, rolesApi, rolesManagementApi, permissionsManagementApi, bankAccountsManagementApi, accountTypesManagementApi } from './lib/dataFetching'
+import { dashboardApi, adminUsersApi, rolesApi, adminRolesApi, adminPermissionsApi, bankAccountsApi, accountTypesApi } from './lib/dataFetching'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -65,15 +65,15 @@ const dashboardLoader = async () => {
   }
 }
 
-const usersManagementLoader = async () => {
-  console.log('[App] usersManagementLoader START')
+const adminUsersLoader = async () => {
+  console.log('[App] adminUsersLoader START')
   
   try {
     // Prefetch users and roles data
     const [usersData, roles] = await Promise.all([
       queryClient.fetchQuery({
-        queryKey: queryKeys.usersManagement(),
-        queryFn: usersManagementApi.getUsers,
+        queryKey: queryKeys.adminUsers(),
+        queryFn: adminUsersApi.getUsers,
       }),
       queryClient.fetchQuery({
         queryKey: queryKeys.roles(),
@@ -81,105 +81,100 @@ const usersManagementLoader = async () => {
       }),
     ])
     
-    console.log('[App] usersManagementLoader SUCCESS')
+    console.log('[App] adminUsersLoader SUCCESS')
     return { users: usersData.users, roles }
   } catch (error) {
-    console.error('[App] usersManagementLoader ERROR:', error)
+    console.error('[App] adminUsersLoader ERROR:', error)
     // Return empty data on error - components will handle loading states
     return { users: [], roles: [] }
   }
 }
 
-const rolesManagementLoader = async () => {
-  console.log('[App] rolesManagementLoader START')
+const adminRolesLoader = async () => {
+  console.log('[App] adminRolesLoader START')
   
   try {
     // Prefetch roles and permissions data
     const [roles, permissions] = await Promise.all([
       queryClient.fetchQuery({
-        queryKey: queryKeys.rolesManagement(),
-        queryFn: rolesManagementApi.getRoles,
+        queryKey: queryKeys.adminRoles(),
+        queryFn: adminRolesApi.getRoles,
       }),
       queryClient.fetchQuery({
-        queryKey: queryKeys.permissionsManagement(),
-        queryFn: permissionsManagementApi.getPermissions,
+        queryKey: queryKeys.adminPermissions(),
+        queryFn: adminPermissionsApi.getPermissions,
       }),
     ])
     
-    console.log('[App] rolesManagementLoader SUCCESS')
+    console.log('[App] adminRolesLoader SUCCESS')
     return { roles, permissions }
   } catch (error) {
-    console.error('[App] rolesManagementLoader ERROR:', error)
+    console.error('[App] adminRolesLoader ERROR:', error)
     return { roles: [], permissions: [] }
   }
 }
 
-const permissionsManagementLoader = async () => {
-  console.log('[App] permissionsManagementLoader START')
+const adminPermissionsLoader = async () => {
+  console.log('[App] adminPermissionsLoader START')
   
   try {
     const permissions = await queryClient.fetchQuery({
-      queryKey: queryKeys.permissionsManagement(),
-      queryFn: permissionsManagementApi.getPermissions,
+      queryKey: queryKeys.adminPermissions(),
+      queryFn: adminPermissionsApi.getPermissions,
       staleTime: 10 * 60 * 1000, // Cache permissions for 10 minutes
     })
     
-    console.log('[App] permissionsManagementLoader SUCCESS')
+    console.log('[App] adminPermissionsLoader SUCCESS')
     return { permissions }
   } catch (error) {
-    console.error('[App] permissionsManagementLoader ERROR:', error)
+    console.error('[App] adminPermissionsLoader ERROR:', error)
     return { permissions: [] }
   }
 }
 
-const bankAccountsManagementLoader = async () => {
-  console.log('[App] bankAccountsManagementLoader START')
+const adminBankAccountsLoader = async () => {
+  console.log('[App] adminBankAccountsLoader START')
   
   try {
     const bankAccountsData = await queryClient.fetchQuery({
-      queryKey: queryKeys.bankAccountsManagement(),
-      queryFn: bankAccountsManagementApi.getBankAccounts,
+      queryKey: queryKeys.bankAccounts(),
+      queryFn: bankAccountsApi.getBankAccounts,
       staleTime: 5 * 60 * 1000, // Cache bank accounts for 5 minutes
     })
     
-    console.log('[App] bankAccountsManagementLoader SUCCESS')
+    console.log('[App] adminBankAccountsLoader SUCCESS')
     return { bankAccounts: bankAccountsData.bank_accounts }
   } catch (error) {
-    console.error('[App] bankAccountsManagementLoader ERROR:', error)
+    console.error('[App] adminBankAccountsLoader ERROR:', error)
     return { bankAccounts: [] }
   }
 }
 
-const accountTypesManagementLoader = async () => {
-  console.log('[App] accountTypesManagementLoader START')
+const adminAccountTypesLoader = async () => {
+  console.log('[App] adminAccountTypesLoader START')
   
   try {
     // Prefetch both account types and bank accounts data
     const [accountTypesData, bankAccountsData] = await Promise.all([
       queryClient.fetchQuery({
-        queryKey: queryKeys.accountTypesManagement(),
-        queryFn: accountTypesManagementApi.getAccountTypes,
+        queryKey: queryKeys.accountTypes(),
+        queryFn: accountTypesApi.getAccountTypes,
         staleTime: 5 * 60 * 1000, // Cache account types for 5 minutes
       }),
       queryClient.fetchQuery({
-        queryKey: queryKeys.bankAccountsManagement(),
-        queryFn: bankAccountsManagementApi.getBankAccounts,
+        queryKey: queryKeys.bankAccounts(),
+        queryFn: bankAccountsApi.getBankAccounts,
         staleTime: 5 * 60 * 1000, // Cache bank accounts for 5 minutes
       }),
     ])
     
-    console.log('[App] accountTypesManagementLoader SUCCESS')
+    console.log('[App] adminAccountTypesLoader SUCCESS')
     return { 
       accountTypes: accountTypesData.account_types,
       bankAccounts: bankAccountsData.bank_accounts
     }
   } catch (error) {
-    console.error('[App] accountTypesManagementLoader ERROR:', error)
-    // Handle permission errors gracefully - return empty data instead of throwing
-    if (error.message === 'Insufficient permissions') {
-      console.log('[App] accountTypesManagementLoader - User lacks permissions, returning empty data')
-      return { accountTypes: [], bankAccounts: [] }
-    }
+    console.error('[App] adminAccountTypesLoader ERROR:', error)
     return { accountTypes: [], bankAccounts: [] }
   }
 }
@@ -241,61 +236,61 @@ const router = createBrowserRouter([
       {
         path: 'admin/users',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'users', action: 'view' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'users', action: 'manage' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminUsers />
             </Suspense>
           </ProtectedRoute>
         ),
-        loader: usersManagementLoader,
+        loader: adminUsersLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {
         path: 'admin/roles',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'roles', action: 'view' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'roles', action: 'manage' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminRoles />
             </Suspense>
           </ProtectedRoute>
         ),
-        loader: rolesManagementLoader,
+        loader: adminRolesLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {
         path: 'admin/permissions',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'permissions', action: 'view' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'permissions', action: 'manage' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminPermissions />
             </Suspense>
           </ProtectedRoute>
         ),
-        loader: permissionsManagementLoader,
+        loader: adminPermissionsLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {
         path: 'admin/bank-accounts',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'bank_accounts', action: 'view' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'bank_accounts', action: 'manage' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminBankAccounts />
             </Suspense>
           </ProtectedRoute>
         ),
-        loader: bankAccountsManagementLoader,
+        loader: adminBankAccountsLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {
         path: 'admin/account-types',
         element: (
-          <ProtectedRoute requiredPermission={{ resource: 'account_types', action: 'view' }}>
+          <ProtectedRoute requiredPermission={{ resource: 'account_types', action: 'manage' }}>
             <Suspense fallback={<PageLoadingFallback />}>
               <AdminAccountTypes />
             </Suspense>
           </ProtectedRoute>
         ),
-        loader: accountTypesManagementLoader,
+        loader: adminAccountTypesLoader,
         hydrateFallbackElement: <PageLoadingFallback />,
       },
       {
