@@ -19,68 +19,69 @@ function getCacheKey(userId: string, resource: string, action: string): string {
   return `${userId}:${resource}:${action}`
 }
 
-export function hasMenuAccess(user: User | null, menuId: string): boolean {
-  if (!user || !user.is_active) return false
-  return true // all logged-in users have access
-}
-
-export function hasSubMenuAccess(user: User | null, menuId: string, subMenuId: string): boolean {
-  if (!user || !user.is_active) return false
-  return true // all logged-in users have access
-}
-
-export function hasComponentAccess(user: User | null, componentId: string): boolean {
-  if (!user || !user.is_active) return false
-  return true // all logged-in users have access
+// Flatten all permissions from roles
+function getAllPermissions(user: User | null): Array<{ resource: string; action: string }> {
+  if (!user || !user.roles) return []
+  const perms = user.roles.flatMap(role =>
+    role.role_permissions?.map(rp => rp.permissions).filter(Boolean) || []
+  )
+  // Remove duplicates
+  const uniquePerms: Array<{ resource: string; action: string }> = []
+  perms.forEach(p => {
+    if (!uniquePerms.find(up => up.resource === p.resource && up.action === p.action)) {
+      uniquePerms.push(p)
+    }
+  })
+  return uniquePerms
 }
 
 export function hasPermission(user: User | null, resource: string, action: string): boolean {
   if (!user || !user.is_active) return false
 
-  // Clean expired cache entries
   cleanPermissionCache()
-
-  // Check cache first
   const cacheKey = getCacheKey(user.id, resource, action)
   if (permissionCache.has(cacheKey)) {
     return permissionCache.get(cacheKey)!
   }
 
-  // All logged-in users have permission
-  const hasAccess = true
+  // Admin override
+  if (user.roles?.some(r => r.name.toLowerCase() === 'admin')) {
+    permissionCache.set(cacheKey, true)
+    return true
+  }
 
-  // Cache the result
+  const allPerms = getAllPermissions(user)
+  const hasAccess = allPerms.some(p => p.resource === resource && p.action === action)
+
   permissionCache.set(cacheKey, hasAccess)
-
   return hasAccess
+}
+
+export function hasMenuAccess(user: User | null, menuId: string): boolean {
+  if (!user || !user.is_active) return false
+  return user.menu_access?.includes(menuId) ?? false
+}
+
+export function hasSubMenuAccess(user: User | null, menuId: string, subMenuId: string): boolean {
+  if (!user || !user.is_active) return false
+  return user.sub_menu_access?.[menuId]?.includes(subMenuId) ?? false
+}
+
+export function hasComponentAccess(user: User | null, componentId: string): boolean {
+  if (!user || !user.is_active) return false
+  return user.component_access?.includes(componentId) ?? false
 }
 
 export function isAdmin(user: User | null): boolean {
   if (!user || !user.is_active) return false
-
-  // Clean expired cache entries
-  cleanPermissionCache()
-
-  // Check cache first
-  const cacheKey = getCacheKey(user.id, 'admin', 'check')
-  if (permissionCache.has(cacheKey)) {
-    return permissionCache.get(cacheKey)!
-  }
-
-  // All logged-in users are treated as admin
-  const isUserAdmin = true
-
-  // Cache the result
-  permissionCache.set(cacheKey, isUserAdmin)
-
-  return isUserAdmin
+  return user.roles?.some(r => r.name.toLowerCase() === 'admin') ?? false
 }
 
 export function canAccessAdminPanel(user: User | null): boolean {
   return hasPermission(user, 'admin', 'access')
 }
 
-// Clear permission cache when user data changes (call this from AuthContext)
+// Clear permission cache when user data changes
 export function clearPermissionCache(): void {
   permissionCache.clear()
   lastCacheClean = Date.now()
