@@ -5,11 +5,14 @@ import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit, Trash2, Shield } from 'lucide-react'
 import { adminUsersApi, adminRolesApi, ApiError } from '../lib/dataFetching'
 import { generateTemporaryPassword } from '../utils/validation'
+import { hasPermission } from '../utils/permissions'
 import type { User, Role, CreateUserData, UpdateUserData } from '../types/auth'
+import { useAuth } from '../contexts/AuthContext'
 
 export function AdminUsers() {
   const queryClient = useQueryClient()
   const loaderData = useLoaderData() as { users: User[]; roles: Role[] }
+  const { user } = useAuth()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -18,10 +21,12 @@ export function AdminUsers() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Users query with initial loader data
+  const canManageUsers = hasPermission(user, 'users', 'manage')
+
+  // Users query
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: queryKeys.adminUsers(),
-    queryFn: adminUsersApi.getUsers,
+    queryFn: () => (canManageUsers ? adminUsersApi.getUsers() : Promise.resolve({ users: [] })),
     initialData: { users: loaderData.users },
   })
 
@@ -31,7 +36,7 @@ export function AdminUsers() {
     initialData: loaderData.roles,
   })
 
-  // Create user mutation
+  // Mutations
   const createUserMutation = useMutation({
     mutationFn: adminUsersApi.createUser,
     onSuccess: () => {
@@ -42,9 +47,9 @@ export function AdminUsers() {
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to create user')
     },
+    enabled: canManageUsers,
   })
 
-  // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: ({ userId, userData }: { userId: string; userData: UpdateUserData }) =>
       adminUsersApi.updateUser(userId, userData),
@@ -57,9 +62,9 @@ export function AdminUsers() {
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to update user')
     },
+    enabled: canManageUsers,
   })
 
-  // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: adminUsersApi.deleteUser,
     onSuccess: () => {
@@ -69,6 +74,7 @@ export function AdminUsers() {
     onError: (error) => {
       setError(error instanceof ApiError ? error.message : 'Failed to delete user')
     },
+    enabled: canManageUsers,
   })
 
   const handleCreateUser = (userData: CreateUserData) => createUserMutation.mutate(userData)
@@ -84,9 +90,8 @@ export function AdminUsers() {
   const users = usersData?.users || []
   const loading =
     usersLoading ||
-    createUserMutation.isPending ||
-    updateUserMutation.isPending ||
-    deleteUserMutation.isPending
+    (canManageUsers &&
+      (createUserMutation.isPending || updateUserMutation.isPending || deleteUserMutation.isPending))
 
   const filteredUsers = users.filter(
     (user) =>
@@ -104,13 +109,15 @@ export function AdminUsers() {
             Manage user accounts, roles, and permissions
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </button>
+        {canManageUsers && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
+          </button>
+        )}
       </div>
 
       {/* Alerts */}
@@ -135,6 +142,7 @@ export function AdminUsers() {
       <UsersTable
         users={filteredUsers}
         loading={loading}
+        canManage={canManageUsers}
         onEdit={(user) => {
           setSelectedUser(user)
           setShowEditModal(true)
@@ -143,32 +151,59 @@ export function AdminUsers() {
       />
 
       {/* Modals */}
-      {showCreateModal && <CreateUserModal roles={roles || []} onClose={() => setShowCreateModal(false)} onSubmit={handleCreateUser} />}
-      {showEditModal && selectedUser && <EditUserModal user={selectedUser} roles={roles || []} onClose={() => { setShowEditModal(false); setSelectedUser(null) }} onSubmit={handleUpdateUser} />}
+      {canManageUsers && showCreateModal && (
+        <CreateUserModal roles={roles || []} onClose={() => setShowCreateModal(false)} onSubmit={handleCreateUser} />
+      )}
+      {canManageUsers && showEditModal && selectedUser && (
+        <EditUserModal
+          user={selectedUser}
+          roles={roles || []}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedUser(null)
+          }}
+          onSubmit={handleUpdateUser}
+        />
+      )}
     </div>
   )
 }
 
 /* ----------------- Reusable Components ----------------- */
 
-// Alert component
 function Alert({ type, message }: { type: 'error' | 'success'; message: string }) {
   return (
-    <div className={`${type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'} border rounded-md p-4`}>
+    <div
+      className={`${
+        type === 'error'
+          ? 'bg-red-50 border-red-200 text-red-800'
+          : 'bg-green-50 border-green-200 text-green-800'
+      } border rounded-md p-4`}
+    >
       <p>{message}</p>
     </div>
   )
 }
 
-// Users Table component
-function UsersTable({ users, loading, onEdit, onDelete }: { users: User[]; loading: boolean; onEdit: (user: User) => void; onDelete: (id: string) => void }) {
-  if (loading) {
+function UsersTable({
+  users,
+  loading,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  users: User[]
+  loading: boolean
+  canManage: boolean
+  onEdit: (user: User) => void
+  onDelete: (id: string) => void
+}) {
+  if (loading)
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
       </div>
     )
-  }
 
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-md">
@@ -186,7 +221,11 @@ function UsersTable({ users, loading, onEdit, onDelete }: { users: User[]; loadi
                   <div className="flex items-center">
                     <div className="text-sm font-medium text-gray-900">{user.full_name || 'No name'}</div>
                     <div className="ml-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                       {user.needs_password_reset && (
@@ -200,14 +239,22 @@ function UsersTable({ users, loading, onEdit, onDelete }: { users: User[]; loadi
                   <div className="text-sm text-gray-500">Roles: {user.roles?.map((r) => r.name).join(', ') || 'No roles'}</div>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <button onClick={() => onEdit(user)} className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  <Edit className="h-4 w-4" />
-                </button>
-                <button onClick={() => onDelete(user.id)} className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              {canManage && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => onEdit(user)}
+                    className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(user.id)}
+                    className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </li>
         ))}
@@ -218,7 +265,15 @@ function UsersTable({ users, loading, onEdit, onDelete }: { users: User[]; loadi
 
 /* ----------------- Modals ----------------- */
 
-function CreateUserModal({ roles, onClose, onSubmit }: { roles: Role[]; onClose: () => void; onSubmit: (userData: CreateUserData) => void }) {
+function CreateUserModal({
+  roles,
+  onClose,
+  onSubmit,
+}: {
+  roles: Role[]
+  onClose: () => void
+  onSubmit: (userData: CreateUserData) => void
+}) {
   const [formData, setFormData] = useState({
     email: '',
     password: generateTemporaryPassword(),
@@ -261,4 +316,87 @@ function CreateUserModal({ roles, onClose, onSubmit }: { roles: Role[]; onClose:
   )
 }
 
-// EditUserModal and helper components omitted for brevity (similar structure)
+function EditUserModal({
+  user,
+  roles,
+  onClose,
+  onSubmit,
+}: {
+  user: User
+  roles: Role[]
+  onClose: () => void
+  onSubmit: (userData: UpdateUserData) => void
+}) {
+  const [formData, setFormData] = useState({
+    email: user.email,
+    full_name: user.full_name,
+    role_ids: user.roles?.map((r) => r.id) || [],
+    is_active: user.is_active,
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
+  }
+
+  const handleRoleChange = (roleId: string, checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      role_ids: checked ? [...new Set([...prev.role_ids, roleId])] : prev.role_ids.filter((id) => id !== roleId),
+    }))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Edit User</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <InputField label="Email" value={formData.email} onChange={(v) => setFormData((p) => ({ ...p, email: v }))} required />
+          <InputField label="Full Name" value={formData.full_name} onChange={(v) => setFormData((p) => ({ ...p, full_name: v }))} required />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+            <RoleSelector roles={roles} selectedRoles={formData.role_ids} onChange={handleRoleChange} />
+          </div>
+          <div className="flex justify-end space-x-3 pt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">Update User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function InputField({ label, value, onChange, required, helper }: { label: string; value: string; onChange: (val: string) => void; required?: boolean; helper?: string }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+      />
+      {helper && <p className="text-xs text-gray-500 mt-1">{helper}</p>}
+    </div>
+  )
+}
+
+function RoleSelector({ roles, selectedRoles, onChange }: { roles: Role[]; selectedRoles: string[]; onChange: (roleId: string, checked: boolean) => void }) {
+  return (
+    <div className="space-y-2">
+      {roles.map((role) => (
+        <label key={role.id} className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            checked={selectedRoles.includes(role.id)}
+            onChange={(e) => onChange(role.id, e.target.checked)}
+            className="h-4 w-4 text-emerald-600 border-gray-300 rounded"
+          />
+          <span className="text-sm text-gray-700">{role.name}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
