@@ -39,7 +39,8 @@ const navigation: NavItem[] = [
     name: 'User Management',
     href: '/admin/users',
     icon: Users,
-    permission: { resource: 'users', action: 'manage' }
+    // **Allow both 'manage' and 'view' actions for sidebar display**
+    permission: { resource: 'users', action: 'manage' } 
   },
   {
     name: 'Role Management',
@@ -96,6 +97,10 @@ export function Sidebar() {
 
   const filteredNavigation = navigation.filter(item => {
     if (!item.permission) return true
+    // For User Management, allow either 'manage' or 'view'
+    if (item.href === '/admin/users') {
+      return hasPermission(user, 'users', 'manage') || hasPermission(user, 'users', 'view')
+    }
     return hasPermission(user, item.permission.resource, item.permission.action)
   })
 
