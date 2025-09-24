@@ -1,8 +1,8 @@
 // src/pages/members/NewMemberPage.tsx
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { membersApi } from '../../lib/membersApi'
+import { createMember } from '../../lib/membersApi'
 import { accountTypesApi } from '../../lib/dataFetching'
 import type { Member } from '../../types/member'
 import type { AccountType } from '../../types/accountType'
@@ -42,8 +42,8 @@ export default function NewMemberPage() {
 
   // React Query mutation
   const createMemberMutation = useMutation({
-    mutationFn: (newMember: Omit<Member, 'id'>) => membersApi.createMember(newMember),
-    onSuccess: (member) => {
+    mutationFn: (newMember: Omit<Member, 'id'>) => createMember(newMember),
+    onSuccess: () => {
       setSuccess('Member created successfully!')
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['members'] })
@@ -245,10 +245,10 @@ export default function NewMemberPage() {
         <div className="pt-4">
           <button
             type="submit"
-            disabled={createMemberMutation.isPending}
+            disabled={createMemberMutation.isLoading}
             className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
+            {createMemberMutation.isLoading ? 'Creating...' : 'Create Member'}
           </button>
         </div>
       </form>
