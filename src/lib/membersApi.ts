@@ -1,50 +1,28 @@
-// ---------------- MEMBERS API START ----------------
-// Temporary in-memory API for members. 
-// Later, replace with Supabase integration.
+// src/lib/membersApi.ts
+import { Member } from '../types/member'
 
-import { Member } from "../types/member"
+const BASE_URL = '/api/members' // replace with your actual API endpoint
 
-// Fake store (reset when app reloads)
-let members: Member[] = []
+export async function createMember(newMember: Omit<Member, 'id'>): Promise<Member> {
+  const response = await fetch(BASE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(newMember),
+  })
 
-// Utility to generate random IDs for test
-function generateId() {
-  return Math.random().toString(36).substring(2, 10)
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Failed to create member')
+  }
+
+  return response.json()
 }
 
-// Fetch all members
+// Optional: other API functions for members
 export async function getMembers(): Promise<Member[]> {
-  return members
+  const response = await fetch(BASE_URL)
+  if (!response.ok) throw new Error('Failed to fetch members')
+  return response.json()
 }
-
-// Fetch single member by ID
-export async function getMemberById(id: string): Promise<Member | null> {
-  return members.find((m) => m.id === id) || null
-}
-
-// Create new member
-export async function createMember(data: Omit<Member, "id">): Promise<Member> {
-  const newMember: Member = { id: generateId(), ...data }
-  members.push(newMember)
-  return newMember
-}
-
-// Update existing member
-export async function updateMember(
-  id: string,
-  data: Partial<Member>
-): Promise<Member | null> {
-  const index = members.findIndex((m) => m.id === id)
-  if (index === -1) return null
-  members[index] = { ...members[index], ...data }
-  return members[index]
-}
-
-// Delete member
-export async function deleteMember(id: string): Promise<boolean> {
-  const index = members.findIndex((m) => m.id === id)
-  if (index === -1) return false
-  members.splice(index, 1)
-  return true
-}
-// ---------------- MEMBERS API END ----------------
