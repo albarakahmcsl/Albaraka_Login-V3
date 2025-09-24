@@ -1,30 +1,57 @@
-// ---------------- MEMBER TYPE START ----------------
-// This file defines the structure of a Member record in your system.
-// You can extend this later if new fields are needed.
+// ---------------- MEMBERS TYPES START ----------------
+export type Gender = 'male' | 'female' | 'other';
+export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed' | 'other';
 
-export interface Member {
-  id: string
-  name: string
-  address: string
-  dob: string // ISO date string (e.g., "1990-05-20")
-  gender: "male" | "female" | "other"
-  email: string
-  phone: string
-  id_card_no: string
-  age: number
-  occupation: string
-  marital_status: "single" | "married" | "divorced" | "widowed"
-  account_type_id: string // Foreign key to account_types table
-
-  // Checklist: which documents are provided
-  documents: {
-    birth_certificate: boolean
-    id_copy: boolean
-    application_fee_paid: boolean
-  }
-
-  // System fields (managed by Supabase later)
-  created_at?: string
-  updated_at?: string
+// Document checklist type
+export interface DocumentChecklist {
+  birthCertificate: boolean;
+  idCopy: boolean;
+  applicationFeePaid: boolean;
+  [key: string]: boolean; // for future documents
 }
-// ---------------- MEMBER TYPE END ----------------
+
+// Account type
+export interface AccountType {
+  id: string;
+  name: string;
+  processingFee: number; // in your currency
+}
+
+// Member interface
+export interface Member {
+  id: string;
+  name: string;
+  address: string;
+  dob: string; // ISO date string
+  gender: Gender;
+  email: string;
+  phone: string;
+  idCardNumber: string;
+  age: number;
+  occupation: string;
+  maritalStatus: MaritalStatus;
+  accountTypeId: string;
+  documents: DocumentChecklist;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Payload for creating a member
+export interface CreateMemberData {
+  name: string;
+  address: string;
+  dob: string;
+  gender: Gender;
+  email: string;
+  phone: string;
+  idCardNumber: string;
+  age: number;
+  occupation: string;
+  maritalStatus: MaritalStatus;
+  accountTypeId: string;
+  documents: DocumentChecklist;
+}
+
+// Payload for updating a member
+export interface UpdateMemberData extends Partial<CreateMemberData> {}
+// ---------------- MEMBERS TYPES END ----------------
