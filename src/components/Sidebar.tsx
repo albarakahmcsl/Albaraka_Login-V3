@@ -29,19 +29,6 @@ const navigation: NavItem[] = [
     icon: Home,
     permission: { resource: 'dashboard', action: 'access' }
   },
-
-
-  // ---------------- MEMBERS LINK BLOCK START ----------------
-{
-  name: 'Members',
-  href: '/members',
-  icon: Users, // or choose another appropriate icon
-  permission: { resource: 'members', action: 'view' }
-},
-// ---------------- MEMBERS LINK BLOCK END ----------------
-
-
-  
   {
     name: 'Admin Panel',
     href: '/admin/dashboard',
