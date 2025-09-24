@@ -1,66 +1,59 @@
 // src/lib/membersApi.ts
-import type { Member } from '../types/member'
-import type { AccountType } from '../types/index'
+import { ApiError } from './apiError' // If you have a custom ApiError class
+import type { Member, CreateMemberData, UpdateMemberData, AccountType } from '../types/members'
 
-// You can replace this with your real backend URL
-const BASE_URL = '/api'
-
-export class ApiError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'ApiError'
-  }
-}
+const API_BASE = '/api' // Replace with your real backend if different
 
 // ---------------- MEMBERS API ----------------
-async function getMembers(): Promise<{ members: Member[] }> {
-  const res = await fetch(`${BASE_URL}/members`)
-  if (!res.ok) throw new ApiError('Failed to fetch members')
-  return res.json()
-}
-
-async function createMember(memberData: Omit<Member, 'id'>): Promise<Member> {
-  const res = await fetch(`${BASE_URL}/members`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(memberData),
-  })
-  if (!res.ok) throw new ApiError('Failed to create member')
-  return res.json()
-}
-
-async function updateMember(memberId: string, memberData: Partial<Member>): Promise<Member> {
-  const res = await fetch(`${BASE_URL}/members/${memberId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(memberData),
-  })
-  if (!res.ok) throw new ApiError('Failed to update member')
-  return res.json()
-}
-
-async function deleteMember(memberId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/members/${memberId}`, {
-    method: 'DELETE',
-  })
-  if (!res.ok) throw new ApiError('Failed to delete member')
-}
-
-// Export as object to match your current imports
 export const membersApi = {
-  getMembers,
-  createMember,
-  updateMember,
-  deleteMember,
+  getMembers: async (): Promise<{ members: Member[] }> => {
+    try {
+      const res = await fetch(`${API_BASE}/members`)
+      if (!res.ok) throw new ApiError('Failed to fetch members')
+      return res.json()
+    } catch (err: any) {
+      throw new ApiError(err.message || 'Failed to fetch members')
+    }
+  },
+
+  createMember: async (data: CreateMemberData): Promise<Member> => {
+    try {
+      const res = await fetch(`${API_BASE}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new ApiError('Failed to create member')
+      return res.json()
+    } catch (err: any) {
+      throw new ApiError(err.message || 'Failed to create member')
+    }
+  },
+
+  updateMember: async (memberId: string, data: UpdateMemberData): Promise<Member> => {
+    try {
+      const res = await fetch(`${API_BASE}/members/${memberId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new ApiError('Failed to update member')
+      return res.json()
+    } catch (err: any) {
+      throw new ApiError(err.message || 'Failed to update member')
+    }
+  },
 }
 
 // ---------------- ACCOUNT TYPES API ----------------
-async function getAccountTypes(): Promise<{ account_types: AccountType[] }> {
-  const res = await fetch(`${BASE_URL}/account-types`)
-  if (!res.ok) throw new ApiError('Failed to fetch account types')
-  return res.json()
-}
-
 export const accountTypesApi = {
-  getAccountTypes,
+  getAccountTypes: async (): Promise<{ account_types: AccountType[] }> => {
+    try {
+      const res = await fetch(`${API_BASE}/account-types`)
+      if (!res.ok) throw new ApiError('Failed to fetch account types')
+      return res.json()
+    } catch (err: any) {
+      throw new ApiError(err.message || 'Failed to fetch account types')
+    }
+  },
 }
