@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { createMember } from '../../lib/membersApi' // make sure createMember is exported directly
+import { CreateMemberData } from '../../lib/membersApi' // make sure createMember is exported directly
 import { accountTypesApi } from '../../lib/dataFetching'
 import type { Member } from '../../types/member'
 import type { AccountType } from '../../types/index' // corrected import
