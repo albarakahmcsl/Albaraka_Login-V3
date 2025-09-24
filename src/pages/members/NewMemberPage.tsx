@@ -2,10 +2,10 @@
 import React, { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { createMember } from '../../lib/membersApi'
+import { createMember } from '../../lib/membersApi' // make sure createMember is exported directly
 import { accountTypesApi } from '../../lib/dataFetching'
 import type { Member } from '../../types/member'
-import type { AccountType } from '../../types/accountType'
+import type { AccountType } from '../../types/index' // corrected import
 
 export default function NewMemberPage() {
   const queryClient = useQueryClient()
@@ -68,6 +68,7 @@ export default function NewMemberPage() {
       {success && <div className="bg-green-50 border border-green-200 p-4 rounded mb-4 text-green-800">{success}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Full Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700">Full Name</label>
           <input
@@ -79,6 +80,7 @@ export default function NewMemberPage() {
           />
         </div>
 
+        {/* Date of Birth */}
         <div>
           <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
           <input
@@ -90,6 +92,7 @@ export default function NewMemberPage() {
           />
         </div>
 
+        {/* Gender */}
         <div>
           <label className="block text-sm font-medium text-gray-700">Gender</label>
           <select
@@ -201,7 +204,7 @@ export default function NewMemberPage() {
             <option value="">Select Account Type</option>
             {accountTypes.map((type) => (
               <option key={type.id} value={type.id}>
-                {type.name} - Fee: {type.processingFee}
+                {type.name} - Fee: {type.processing_fee}
               </option>
             ))}
           </select>
