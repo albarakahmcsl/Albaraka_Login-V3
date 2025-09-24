@@ -1,59 +1,52 @@
 // src/lib/membersApi.ts
-//import { ApiError } from './apiError' // If you have a custom ApiError class
-import type { Member, CreateMemberData, UpdateMemberData, AccountType } from '../types/members'
+import { Member, CreateMemberData, UpdateMemberData, AccountType } from '../types/members'
 
-const API_BASE = '/api' // Replace with your real backend if different
+// ---------------- API ERROR CLASS ----------------
+export class ApiError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+// ---------------- API ENDPOINTS ----------------
+// Replace this with your actual backend URL
+const BASE_URL = '/api/members'
 
 // ---------------- MEMBERS API ----------------
 export const membersApi = {
   getMembers: async (): Promise<{ members: Member[] }> => {
-    try {
-      const res = await fetch(`${API_BASE}/members`)
-      if (!res.ok) throw new ApiError('Failed to fetch members')
-      return res.json()
-    } catch (err: any) {
-      throw new ApiError(err.message || 'Failed to fetch members')
-    }
+    const res = await fetch(`${BASE_URL}`)
+    if (!res.ok) throw new ApiError('Failed to fetch members')
+    return res.json()
   },
 
   createMember: async (data: CreateMemberData): Promise<Member> => {
-    try {
-      const res = await fetch(`${API_BASE}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new ApiError('Failed to create member')
-      return res.json()
-    } catch (err: any) {
-      throw new ApiError(err.message || 'Failed to create member')
-    }
+    const res = await fetch(`${BASE_URL}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new ApiError('Failed to create member')
+    return res.json()
   },
 
   updateMember: async (memberId: string, data: UpdateMemberData): Promise<Member> => {
-    try {
-      const res = await fetch(`${API_BASE}/members/${memberId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new ApiError('Failed to update member')
-      return res.json()
-    } catch (err: any) {
-      throw new ApiError(err.message || 'Failed to update member')
-    }
+    const res = await fetch(`${BASE_URL}/${memberId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new ApiError('Failed to update member')
+    return res.json()
   },
 }
 
 // ---------------- ACCOUNT TYPES API ----------------
 export const accountTypesApi = {
   getAccountTypes: async (): Promise<{ account_types: AccountType[] }> => {
-    try {
-      const res = await fetch(`${API_BASE}/account-types`)
-      if (!res.ok) throw new ApiError('Failed to fetch account types')
-      return res.json()
-    } catch (err: any) {
-      throw new ApiError(err.message || 'Failed to fetch account types')
-    }
+    const res = await fetch('/api/account-types') // adjust endpoint if different
+    if (!res.ok) throw new ApiError('Failed to fetch account types')
+    return res.json()
   },
 }
