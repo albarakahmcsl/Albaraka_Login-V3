@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryClient'
 import { Plus, Search, Edit } from 'lucide-react'
-import { membersApi, accountTypesApi, ApiError } from '../lib/dataFetching'
+import { membersApi, accountTypesApi, ApiError } from '../lib/membersApi'
 import type { Member, CreateMemberData, UpdateMemberData, AccountType } from '../types/members'
 
 export default function MembersPage() {
