@@ -10,7 +10,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ForcePasswordChangePage } from './pages/ForcePasswordChangePage'
 
-// Lazy load page components for better performance
+// Lazy load page components
 const Dashboard = React.lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })))
 const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })))
 const AdminUsers = React.lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })))
@@ -20,7 +20,7 @@ const AdminBankAccounts = React.lazy(() => import('./pages/AdminBankAccounts').t
 const AdminAccountTypes = React.lazy(() => import('./pages/AdminAccountTypes').then(module => ({ default: module.AdminAccountTypes })))
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })))
 
-// Loading fallback component
+// Loading fallback components
 const PageLoadingFallback = () => (
   <div className="flex items-center justify-center py-12">
     <div className="text-center">
@@ -39,10 +39,8 @@ const AppLoadingFallback = () => (
   </div>
 )
 
-// Route loaders for data prefetching
+// Route loaders
 const dashboardLoader = async () => {
-  console.log('[App] dashboardLoader START')
-  
   try {
     const [stats, activity] = await Promise.all([
       queryClient.fetchQuery({
@@ -54,17 +52,13 @@ const dashboardLoader = async () => {
         queryFn: dashboardApi.getRecentActivity,
       }),
     ])
-    console.log('[App] dashboardLoader SUCCESS')
     return { stats, activity }
-  } catch (error) {
-    console.error('[App] dashboardLoader ERROR:', error)
+  } catch {
     return { stats: [], activity: [] }
   }
 }
 
 const adminUsersLoader = async () => {
-  console.log('[App] adminUsersLoader START')
-  
   try {
     const [usersData, roles] = await Promise.all([
       queryClient.fetchQuery({
@@ -76,17 +70,13 @@ const adminUsersLoader = async () => {
         queryFn: rolesApi.getRoles,
       }),
     ])
-    console.log('[App] adminUsersLoader SUCCESS')
     return { users: usersData.users, roles }
-  } catch (error) {
-    console.error('[App] adminUsersLoader ERROR:', error)
+  } catch {
     return { users: [], roles: [] }
   }
 }
 
 const adminRolesLoader = async () => {
-  console.log('[App] adminRolesLoader START')
-  
   try {
     const [roles, permissions] = await Promise.all([
       queryClient.fetchQuery({
@@ -98,51 +88,39 @@ const adminRolesLoader = async () => {
         queryFn: adminPermissionsApi.getPermissions,
       }),
     ])
-    console.log('[App] adminRolesLoader SUCCESS')
     return { roles, permissions }
-  } catch (error) {
-    console.error('[App] adminRolesLoader ERROR:', error)
+  } catch {
     return { roles: [], permissions: [] }
   }
 }
 
 const adminPermissionsLoader = async () => {
-  console.log('[App] adminPermissionsLoader START')
-  
   try {
     const permissions = await queryClient.fetchQuery({
       queryKey: queryKeys.adminPermissions(),
       queryFn: adminPermissionsApi.getPermissions,
       staleTime: 10 * 60 * 1000,
     })
-    console.log('[App] adminPermissionsLoader SUCCESS')
     return { permissions }
-  } catch (error) {
-    console.error('[App] adminPermissionsLoader ERROR:', error)
+  } catch {
     return { permissions: [] }
   }
 }
 
 const adminBankAccountsLoader = async () => {
-  console.log('[App] adminBankAccountsLoader START')
-  
   try {
     const bankAccountsData = await queryClient.fetchQuery({
       queryKey: queryKeys.bankAccounts(),
       queryFn: bankAccountsApi.getBankAccounts,
       staleTime: 5 * 60 * 1000,
     })
-    console.log('[App] adminBankAccountsLoader SUCCESS')
     return { bankAccounts: bankAccountsData.bank_accounts }
-  } catch (error) {
-    console.error('[App] adminBankAccountsLoader ERROR:', error)
+  } catch {
     return { bankAccounts: [] }
   }
 }
 
 const adminAccountTypesLoader = async () => {
-  console.log('[App] adminAccountTypesLoader START')
-  
   try {
     const [accountTypesData, bankAccountsData] = await Promise.all([
       queryClient.fetchQuery({
@@ -156,35 +134,21 @@ const adminAccountTypesLoader = async () => {
         staleTime: 5 * 60 * 1000,
       }),
     ])
-    console.log('[App] adminAccountTypesLoader SUCCESS')
     return { 
       accountTypes: accountTypesData.account_types,
       bankAccounts: bankAccountsData.bank_accounts
     }
-  } catch (error) {
-    console.error('[App] adminAccountTypesLoader ERROR:', error)
+  } catch {
     return { accountTypes: [], bankAccounts: [] }
   }
 }
 
 // Router configuration
 const router = createBrowserRouter([
-  {
-    path: '/login',
-    element: <LoginForm />,
-  },
-  {
-    path: '/forgot-password',
-    element: <ForgotPasswordPage />,
-  },
-  {
-    path: '/reset-password',
-    element: <ResetPasswordPage />,
-  },
-  {
-    path: '/force-password-change',
-    element: <ForcePasswordChangePage />,
-  },
+  { path: '/login', element: <LoginForm /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/force-password-change', element: <ForcePasswordChangePage /> },
   {
     path: '/',
     element: (
@@ -194,10 +158,7 @@ const router = createBrowserRouter([
     ),
     hydrateFallbackElement: <AppLoadingFallback />,
     children: [
-      {
-        index: true,
-        element: <Navigate to="/dashboard" replace />,
-      },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
       {
         path: 'dashboard',
         element: (
@@ -348,14 +309,9 @@ const router = createBrowserRouter([
       },
     ],
   },
-  {
-    path: '*',
-    element: <Navigate to="/dashboard" replace />,
-  },
+  { path: '*', element: <Navigate to="/dashboard" replace /> },
 ], {
-  future: {
-    v7_partialHydration: true,
-  },
+  future: { v7_partialHydration: true },
 })
 
 function App() {
