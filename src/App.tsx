@@ -18,7 +18,7 @@ const AdminBankAccounts = React.lazy(() => import('./pages/AdminBankAccounts').t
 const AdminAccountTypes = React.lazy(() => import('./pages/AdminAccountTypes').then(m => ({ default: m.AdminAccountTypes })))
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const MembersPage = React.lazy(() =>
-  import('./pages/members/NewMemberPage').then(module => ({ default: module.NewMembersPage }))
+  import('./pages/members/NewMemberPage').then(module => ({ default: module.NewMemberPage }))
 )
 
 
