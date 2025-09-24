@@ -17,7 +17,10 @@ const AdminPermissions = React.lazy(() => import('./pages/AdminPermissions').the
 const AdminBankAccounts = React.lazy(() => import('./pages/AdminBankAccounts').then(m => ({ default: m.AdminBankAccounts })))
 const AdminAccountTypes = React.lazy(() => import('./pages/AdminAccountTypes').then(m => ({ default: m.AdminAccountTypes })))
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
-const MembersPage = React.lazy(() => import('./pages/Members').then(m => ({ default: m.MembersPage })))
+const MembersPage = React.lazy(() =>
+  import('./pages/Members').then((module) => ({ default: module.MembersPage }))
+)
+
 
 // Loading fallback components
 const PageLoadingFallback = () => (
