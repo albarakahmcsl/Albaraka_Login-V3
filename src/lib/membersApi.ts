@@ -1,5 +1,5 @@
 // src/lib/membersApi.ts
-import { ApiError } from './apiError' // If you have a custom ApiError class
+//import { ApiError } from './apiError' // If you have a custom ApiError class
 import type { Member, CreateMemberData, UpdateMemberData, AccountType } from '../types/members'
 
 const API_BASE = '/api' // Replace with your real backend if different
