@@ -1,7 +1,7 @@
 // src/lib/membersApi.ts
 import { Member } from '../types/member'
 
-const BASE_URL = '/api/members' // replace with your actual API endpoint
+const BASE_URL =  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
 
 export async function createMember(newMember: Omit<Member, 'id'>): Promise<Member> {
   const response = await fetch(BASE_URL, {
