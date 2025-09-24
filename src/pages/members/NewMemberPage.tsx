@@ -1,9 +1,11 @@
 // src/pages/members/NewMemberPage.tsx
-import React, { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import React, { useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { membersApi } from '../../lib/membersApi'
+import { accountTypesApi } from '../../lib/dataFetching'
 import type { Member } from '../../types/member'
+import type { AccountType } from '../../types/accountType'
 
 export default function NewMemberPage() {
   const queryClient = useQueryClient()
@@ -30,6 +32,13 @@ export default function NewMemberPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // Fetch account types
+  const { data: accountTypesData } = useQuery({
+    queryKey: ['accountTypes'],
+    queryFn: accountTypesApi.getAccountTypes,
+  })
+  const accountTypes: AccountType[] = accountTypesData?.account_types || []
 
   // React Query mutation
   const createMemberMutation = useMutation({
@@ -96,8 +105,91 @@ export default function NewMemberPage() {
           </select>
         </div>
 
-        {/* Add other fields similarly: address, email, phone, idCardNumber, age, occupation, maritalStatus */}
+        {/* Address */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Address</label>
+          <input
+            type="text"
+            required
+            value={formData.address}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
 
+        {/* Email */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            required
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Phone */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Phone</label>
+          <input
+            type="tel"
+            required
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* ID Card Number */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">ID Card Number</label>
+          <input
+            type="text"
+            required
+            value={formData.idCardNumber}
+            onChange={(e) => setFormData({ ...formData, idCardNumber: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Age */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Age</label>
+          <input
+            type="number"
+            required
+            value={formData.age}
+            onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Occupation */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Occupation</label>
+          <input
+            type="text"
+            required
+            value={formData.occupation}
+            onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Marital Status */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Marital Status</label>
+          <input
+            type="text"
+            required
+            value={formData.maritalStatus}
+            onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Account Type */}
         <div>
           <label className="block text-sm font-medium text-gray-700">Account Type</label>
           <select
@@ -107,10 +199,15 @@ export default function NewMemberPage() {
             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
           >
             <option value="">Select Account Type</option>
-            {/* TODO: map account types from backend */}
+            {accountTypes.map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.name} - Fee: {type.processingFee}
+              </option>
+            ))}
           </select>
         </div>
 
+        {/* Required Documents */}
         <div className="pt-2">
           <p className="font-medium text-gray-700 mb-1">Required Documents:</p>
           <label className="flex items-center space-x-2">
@@ -118,10 +215,7 @@ export default function NewMemberPage() {
               type="checkbox"
               checked={formData.documents.birthCertificate}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  documents: { ...formData.documents, birthCertificate: e.target.checked },
-                })
+                setFormData({ ...formData, documents: { ...formData.documents, birthCertificate: e.target.checked } })
               }
             />
             <span>Birth Certificate</span>
@@ -131,10 +225,7 @@ export default function NewMemberPage() {
               type="checkbox"
               checked={formData.documents.idCopy}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  documents: { ...formData.documents, idCopy: e.target.checked },
-                })
+                setFormData({ ...formData, documents: { ...formData.documents, idCopy: e.target.checked } })
               }
             />
             <span>ID Copy</span>
@@ -144,10 +235,7 @@ export default function NewMemberPage() {
               type="checkbox"
               checked={formData.documents.applicationFeePaid}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  documents: { ...formData.documents, applicationFeePaid: e.target.checked },
-                })
+                setFormData({ ...formData, documents: { ...formData.documents, applicationFeePaid: e.target.checked } })
               }
             />
             <span>Application Fee Paid</span>
