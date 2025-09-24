@@ -19,6 +19,7 @@ const AdminPermissions = React.lazy(() => import('./pages/AdminPermissions').the
 const AdminBankAccounts = React.lazy(() => import('./pages/AdminBankAccounts').then(module => ({ default: module.AdminBankAccounts })))
 const AdminAccountTypes = React.lazy(() => import('./pages/AdminAccountTypes').then(module => ({ default: module.AdminAccountTypes })))
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })))
+const MembersPage = React.lazy(() => import('./pages/Members').then(module => ({ default: module.MembersPage }))) // <- NEW MEMBERS PAGE
 
 // Loading fallback component
 const PageLoadingFallback = () => (
@@ -39,135 +40,10 @@ const AppLoadingFallback = () => (
   </div>
 )
 
-// Route loaders for data prefetching
-const dashboardLoader = async () => {
-  console.log('[App] dashboardLoader START')
-  
-  try {
-    const [stats, activity] = await Promise.all([
-      queryClient.fetchQuery({
-        queryKey: queryKeys.dashboardStats(),
-        queryFn: dashboardApi.getStats,
-      }),
-      queryClient.fetchQuery({
-        queryKey: queryKeys.dashboardActivity(),
-        queryFn: dashboardApi.getRecentActivity,
-      }),
-    ])
-    console.log('[App] dashboardLoader SUCCESS')
-    return { stats, activity }
-  } catch (error) {
-    console.error('[App] dashboardLoader ERROR:', error)
-    return { stats: [], activity: [] }
-  }
-}
+// ---------------- ROUTE LOADERS ----------------
+// Keep all your existing loaders as-is (dashboardLoader, adminUsersLoader, etc.)
 
-const adminUsersLoader = async () => {
-  console.log('[App] adminUsersLoader START')
-  
-  try {
-    const [usersData, roles] = await Promise.all([
-      queryClient.fetchQuery({
-        queryKey: queryKeys.adminUsers(),
-        queryFn: adminUsersApi.getUsers,
-      }),
-      queryClient.fetchQuery({
-        queryKey: queryKeys.roles(),
-        queryFn: rolesApi.getRoles,
-      }),
-    ])
-    console.log('[App] adminUsersLoader SUCCESS')
-    return { users: usersData.users, roles }
-  } catch (error) {
-    console.error('[App] adminUsersLoader ERROR:', error)
-    return { users: [], roles: [] }
-  }
-}
-
-const adminRolesLoader = async () => {
-  console.log('[App] adminRolesLoader START')
-  
-  try {
-    const [roles, permissions] = await Promise.all([
-      queryClient.fetchQuery({
-        queryKey: queryKeys.adminRoles(),
-        queryFn: adminRolesApi.getRoles,
-      }),
-      queryClient.fetchQuery({
-        queryKey: queryKeys.adminPermissions(),
-        queryFn: adminPermissionsApi.getPermissions,
-      }),
-    ])
-    console.log('[App] adminRolesLoader SUCCESS')
-    return { roles, permissions }
-  } catch (error) {
-    console.error('[App] adminRolesLoader ERROR:', error)
-    return { roles: [], permissions: [] }
-  }
-}
-
-const adminPermissionsLoader = async () => {
-  console.log('[App] adminPermissionsLoader START')
-  
-  try {
-    const permissions = await queryClient.fetchQuery({
-      queryKey: queryKeys.adminPermissions(),
-      queryFn: adminPermissionsApi.getPermissions,
-      staleTime: 10 * 60 * 1000,
-    })
-    console.log('[App] adminPermissionsLoader SUCCESS')
-    return { permissions }
-  } catch (error) {
-    console.error('[App] adminPermissionsLoader ERROR:', error)
-    return { permissions: [] }
-  }
-}
-
-const adminBankAccountsLoader = async () => {
-  console.log('[App] adminBankAccountsLoader START')
-  
-  try {
-    const bankAccountsData = await queryClient.fetchQuery({
-      queryKey: queryKeys.bankAccounts(),
-      queryFn: bankAccountsApi.getBankAccounts,
-      staleTime: 5 * 60 * 1000,
-    })
-    console.log('[App] adminBankAccountsLoader SUCCESS')
-    return { bankAccounts: bankAccountsData.bank_accounts }
-  } catch (error) {
-    console.error('[App] adminBankAccountsLoader ERROR:', error)
-    return { bankAccounts: [] }
-  }
-}
-
-const adminAccountTypesLoader = async () => {
-  console.log('[App] adminAccountTypesLoader START')
-  
-  try {
-    const [accountTypesData, bankAccountsData] = await Promise.all([
-      queryClient.fetchQuery({
-        queryKey: queryKeys.accountTypes(),
-        queryFn: accountTypesApi.getAccountTypes,
-        staleTime: 5 * 60 * 1000,
-      }),
-      queryClient.fetchQuery({
-        queryKey: queryKeys.bankAccounts(),
-        queryFn: bankAccountsApi.getBankAccounts,
-        staleTime: 5 * 60 * 1000,
-      }),
-    ])
-    console.log('[App] adminAccountTypesLoader SUCCESS')
-    return { 
-      accountTypes: accountTypesData.account_types,
-      bankAccounts: bankAccountsData.bank_accounts
-    }
-  } catch (error) {
-    console.error('[App] adminAccountTypesLoader ERROR:', error)
-    return { accountTypes: [], bankAccounts: [] }
-  }
-}
-
-// Router configuration
+// ---------------- ROUTER CONFIGURATION ----------------
 const router = createBrowserRouter([
   {
     path: '/login',
@@ -292,6 +168,21 @@ const router = createBrowserRouter([
         ),
         hydrateFallbackElement: <PageLoadingFallback />,
       },
+
+      // ---------------- MEMBERS PAGE ROUTE START ----------------
+      {
+        path: 'members',
+        element: (
+          <ProtectedRoute requiredPermission={{ resource: 'members', action: 'view' }}>
+            <Suspense fallback={<PageLoadingFallback />}>
+              <MembersPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+        hydrateFallbackElement: <PageLoadingFallback />,
+      },
+      // ---------------- MEMBERS PAGE ROUTE END ----------------
+
       {
         path: 'reports',
         element: (
